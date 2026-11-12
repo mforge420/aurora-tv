@@ -92,6 +92,7 @@ export default function settingsView(root, { go }) {
     guide: () => [
       h('h2', 'TV Guide'),
       row('Update guide now', lib.epgLoading ? 'Updating…' : `${Object.keys(lib.epg.progs).length.toLocaleString()} channels with programme data · ${lib.epgIndex.size.toLocaleString()} matched`, h('button.btn.ghost', { onclick: async (e) => { const b = e.currentTarget; b.disabled = true; await lib.refreshEpg(true, (p) => { b.lastChild.textContent = `${(p.loaded / 1048576).toFixed(1)} MB · ${p.count.toLocaleString()}`; }); draw(); toast('Guide updated', { type: 'ok', icon: 'check' }); }, html: icon('refresh') + '<span>Update</span>' })),
+      row('Live scores', 'Show scores in Sports and in the channel banner. Turn off to avoid spoilers.', toggle('liveScores')),
       row('Auto-update guide', null, select('epgAutoRefreshHours', [[6, 'Every 6 hours'], [12, 'Every 12 hours'], [24, 'Daily']])),
       row('Time shift', 'Correct providers whose guide is off by some hours', select('epgTimeShift', [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5].map((n) => [n, (n > 0 ? '+' : '') + n + ' h']), () => lib.emit('epg'))),
       row('Visible hours', 'How much time the guide grid shows at once', select('guideHours', [[1.5, '1.5 hours'], [2, '2 hours'], [2.5, '2.5 hours'], [3, '3 hours'], [4, '4 hours']])),

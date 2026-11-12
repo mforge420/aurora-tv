@@ -2,6 +2,8 @@
 import { h, fmtClock, fmtDuration, logoEl, clamp, esc, store, rem } from './util.js';
 import { Engine } from './engine.js';
 import { isNative, NativeVideo, NativeEngine } from './native.js';
+import { sportOf } from './sports.js';
+import { scoreForProgramme, scoresEnabled } from './scores.js';
 import { nav } from './nav.js';
 import { lib } from './library.js';
 import { settings } from './settings.js';
@@ -202,6 +204,7 @@ class Player {
             </div>
           </div>
           <div class="osd-prog">
+            <div class="osd-score" hidden></div>
             ${now ? `<div class="osd-now"><span class="live-pill">LIVE</span><b>${esc(now.title)}</b>${now.ep ? `<span class="ep">${esc(now.ep)}</span>` : ''}</div>
               <div class="osd-times"><span>${fmtClock(now.start)}</span><div class="bar"><i></i></div><span>${fmtClock(now.stop)}</span></div>
               ${now.desc ? `<p class="osd-desc">${esc(now.desc)}</p>` : ''}` : `<div class="osd-now"><span class="live-pill">LIVE</span><b>${esc(it.name)}</b></div><div class="muted">No programme information</div>`}
@@ -213,6 +216,7 @@ class Player {
         </div>`;
         this.osd.querySelector('.osd-logo').append(this.#logo(it));
       }
+      if (now) this.#osdScore(it, now, key);
       const pct = now ? clamp((Date.now() - now.start) / (now.stop - now.start), 0, 1) * 100 : 0;
       const bar = this.osd.querySelector('.osd-times .bar i');
       if (bar) bar.style.width = pct + '%';
@@ -244,6 +248,24 @@ class Player {
     }
     const c = this.osd.querySelector('.osd-clock');
     if (c && c.textContent !== clock) c.textContent = clock;
+  }
+
+  /** Live score in the channel banner when the current programme is a match */
+  async #osdScore(ch, prog, key) {
+    if (!scoresEnabled()) return;
+    const sport = sportOf(`${prog.title} ${prog.cat || ''} ${prog.ep || ''}`) || sportOf(`${ch.name} ${ch.group}`);
+    if (!sport) return;
+    const sc = await scoreForProgramme(sport, prog).catch(() => null);
+    const el = this.osd.querySelector('.osd-score');
+    if (!el || this.osdKey !== key) return;
+    if (!sc) { el.hidden = true; return; }
+    const html = sc.sport === 'cricket'
+      ? `<b>${esc(sc.home.short)}</b> ${esc(sc.home.score || '–')} <em>·</em> <b>${esc(sc.away.short)}</b> ${esc(sc.away.score || '–')}${sc.note ? `<small>${esc(sc.note)}</small>` : ''}`
+      : sc.sport === 'f1'
+        ? `${sc.top.map((n, i) => `<b>${i + 1}</b> ${esc(n)}`).join(' <em>·</em> ')}${sc.clock ? `<span class="sp-clock">${esc(sc.clock)}</span>` : ''}`
+        : `${esc(sc.home.name)} <b class="g">${esc(sc.home.score)} – ${esc(sc.away.score)}</b> ${esc(sc.away.name)}${sc.clock ? `<span class="sp-clock${sc.state === 'post' ? ' ft' : ''}">${esc(sc.clock)}</span>` : ''}`;
+    if (el.innerHTML !== html) el.innerHTML = html;
+    el.hidden = false;
   }
 
   /** One logo element per channel, reused so the image never reloads while zapping. */

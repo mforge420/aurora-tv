@@ -2,7 +2,7 @@
 
 A fast, good-looking IPTV player for **M3U** and **Xtream Codes** playlists with an **XMLTV TV guide**. It's built for TV remotes first, and also works with a keyboard, mouse or touch screen.
 
-**📥 Download the Android TV / Fire TV app (latest, v1.0.7):** [LumoraTV-1.0.0.apk](https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk)
+**📥 Download the Android TV / Fire TV app (latest, v1.0.8):** [LumoraTV-1.0.0.apk](https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk)
 (Fire TV *Downloader* code: **2139190**, or the URL `https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk`)
 
 > Lumora TV is only a player. It does not include any channels or content.
@@ -79,6 +79,7 @@ Requires Node 18+. There are no runtime dependencies besides `hls.js` and `mpegt
 - Live and upcoming football, cricket and Formula 1, found in your TV guide (categories, league and competition names, fixtures) and in provider "event" channels
 - The same match on several channels is merged into one card. Sections: Live now, Event channels, Starting soon, Later today, Tomorrow, This week
 - Sport filters, highlights/replays hidden by default, OK to watch or set a reminder
+- **Live scores** from ESPN's public scoreboard feeds (unofficial, no key needed): football score and clock, cricket innings and match status, F1 top 3. Also shown in the channel banner while watching. Can be turned off (*Settings → TV Guide → Live scores*)
 
 **Also**
 - **Multi-view**: 2, 3 or 4 channels at once. Audio follows the focused tile.

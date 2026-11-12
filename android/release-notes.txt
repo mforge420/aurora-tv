@@ -1,3 +1,3 @@
-- New Sports hub (side menu → Sports): live and upcoming football, cricket and Formula 1 from your channels
-- Matches are found in your TV guide and in "event" channels; the same match on several channels is shown once
-- Filter by sport, hide or show highlights & replays, OK to watch live or set a reminder for later
+- Live scores in the Sports hub: football score and match clock, cricket scores with "needs X runs" status, Formula 1 top 3
+- When you watch a live match, the score also appears in the channel banner
+- Scores refresh every 30 seconds; turn them off to avoid spoilers in Settings → TV Guide → Live scores

@@ -5,11 +5,13 @@ import { settings } from '../settings.js';
 import { icon, toast, choose, spinner } from '../ui.js';
 import { nav } from '../nav.js';
 import { SPORTS, findSportsEvents } from '../sports.js';
+import { scoresFor, scoresEnabled } from '../scores.js';
 
 export default function sportsView(root) {
   let filter = store.get('sportsFilter', 'all');
   let showReplays = store.get('sportsReplays', false);
   let data = null;
+  let scores = new Map();
 
   const chips = h('div.sp-chips', { 'data-navgroup': '' });
   const body = h('div.sp-body', spinner('Finding matches in your TV guide…'));
@@ -43,15 +45,49 @@ export default function sportsView(root) {
     if (e.eventChannel) when = `<span class="live-pill">EVENT</span>${e.time ? `<span>${esc(e.time)}</span>` : ''}`;
     else if (live) when = `<span class="live-pill">LIVE</span><span>${fmtMins((e.stop - now) / 60000)} left</span>`;
     else when = `<span class="sp-time">${fmtDay(e.start)} · ${fmtClock(e.start)}</span>${lib.hasReminder(ch, e.start) ? `<span class="sp-rem">${icon('bell')}</span>` : ''}`;
-    const el = h('button.sp-card' + (live ? '.live' : ''), { onclick: () => open(e) },
+    const el = h('button.sp-card' + (live ? '.live' : ''), { dataset: { ekey: e.key }, onclick: () => open(e) },
       h('div.sp-top', { html: `<span class="sp-sport">${icon(s.icon)}${esc(s.label)}</span><span class="sp-when">${when}</span>` }),
       h('div.sp-title', e.title),
+      scoreEl(scores.get(e.key)),
       e.sub ? h('div.sp-sub', e.sub) : null,
       live && !e.eventChannel ? h('div.bar', h('i', { style: { width: clamp((now - e.start) / (e.stop - e.start), 0, 1) * 100 + '%' } })) : null,
       h('div.sp-ch', logoEl(ch.logo, ch.name, 'logo sm'), h('span', ch.name), e.channels.length > 1 ? h('small', `+${e.channels.length - 1} more`) : null),
     );
     el.style.setProperty('--sport', s.color); // custom properties need setProperty
     return el;
+  }
+
+  function scoreEl(sc) {
+    if (!sc) return null;
+    const pill = sc.clock ? `<span class="sp-clock${sc.state === 'post' ? ' ft' : ''}">${esc(sc.clock)}</span>` : '';
+    if (sc.sport === 'cricket') {
+      return h('div.sp-score.cricket', { html: `<div class="sp-inn"><b>${esc(sc.home.short)}</b><span>${esc(sc.home.score || 'Yet to bat')}</span></div>
+        <div class="sp-inn"><b>${esc(sc.away.short)}</b><span>${esc(sc.away.score || 'Yet to bat')}</span></div>
+        ${sc.note ? `<div class="sp-note">${esc(sc.note)}</div>` : ''}` });
+    }
+    if (sc.sport === 'f1') {
+      return h('div.sp-score.f1', { html: `<div class="sp-podium">${sc.top.map((n, i) => `<span><i>${i + 1}</i>${esc(n)}</span>`).join('')}</div>${pill}` });
+    }
+    return h('div.sp-score.football', { html: `<span class="sp-team">${esc(sc.home.name)}</span><span class="sp-goals">${esc(sc.home.score)} – ${esc(sc.away.score)}</span><span class="sp-team">${esc(sc.away.name)}</span>${pill}` });
+  }
+
+  /** Fetch scores for live / about-to-start events and patch them into the cards */
+  let scoreBusy = false;
+  async function refreshScores() {
+    if (!data || scoreBusy || !scoresEnabled()) return;
+    const now = Date.now();
+    const evs = [...data.events.filter((e) => e.start <= now + 10 * 60e3 && e.stop > now - 30 * 60e3), ...data.eventChannels].filter((e) => !e.replay).slice(0, 40);
+    if (!evs.length) return;
+    scoreBusy = true;
+    try { scores = await scoresFor(evs); } finally { scoreBusy = false; }
+    for (const el of body.querySelectorAll('.sp-card')) {
+      const sc = scores.get(el.dataset.ekey);
+      const old = el.querySelector('.sp-score');
+      const neu = scoreEl(sc);
+      if (old && neu) old.replaceWith(neu);
+      else if (old) old.remove();
+      else if (neu) el.querySelector('.sp-title').after(neu);
+    }
   }
 
   async function pickChannel(e) {
@@ -123,6 +159,7 @@ export default function sportsView(root) {
   async function load() {
     data = await findSportsEvents();
     draw();
+    refreshScores();
     if (root.contains(document.activeElement) === false || document.activeElement === document.body) focus();
   }
   function focus() { nav.focus(body.querySelector('.sp-card') || chips.querySelector('.on') || chips.firstChild); }
@@ -138,9 +175,10 @@ export default function sportsView(root) {
   load();
   const offEpg = lib.on('epg', () => load());
   const tick = setInterval(() => { if (data) { data = null; load(); } }, 60e3);
+  const scoreTick = setInterval(refreshScores, 30e3);
   return {
     focus,
     back: () => { if (body.contains(document.activeElement)) { chips.querySelector('.on')?.focus(); body.scrollTo({ top: 0, behavior: 'smooth' }); return true; } return false; },
-    destroy: () => { offEpg(); clearInterval(tick); },
+    destroy: () => { offEpg(); clearInterval(tick); clearInterval(scoreTick); },
   };
 }

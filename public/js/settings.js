@@ -21,6 +21,7 @@ const DEFAULTS = {
   hiddenGroups: [],
   startOnLastChannel: false,
   autoplayNextEpisode: true,
+  liveScores: true,
 };
 
 class Settings extends Emitter {

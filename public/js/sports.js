@@ -22,7 +22,7 @@ const LIVE_WORD = /(^|\W)(live|en vivo|en directo|ao vivo|direct)(\W|$)/i;
 const EVENT_GROUP = /\b(events?|ppv|pay ?per ?view|live sports?|matchday|match ?centre|match ?center|fixtures?)\b/i;
 const NO_EVENT = /\b(no event|no events|offline|tba|tbd|coming soon|off ?air|not scheduled|no match)\b/i;
 
-function sportOf(text) {
+export function sportOf(text) {
   if (RE.cricket.test(text)) return 'cricket';
   if (RE.f1.test(text) && !NOT_F1.test(text)) return 'f1';
   if (RE.football.test(text) && !NOT_FOOTBALL.test(text)) return 'football';

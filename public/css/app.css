@@ -703,3 +703,20 @@ html.native .p-osd { background: linear-gradient(transparent 50%, rgba(0,0,0,.7)
 .sp-ch small { color: var(--muted); white-space: nowrap; margin-left: auto; }
 .empty-state b { color: var(--text); font-size: 1.05rem; }
 .empty-state span { max-width: 32rem; text-align: center; }
+
+/* live scores */
+.sp-score { display: flex; align-items: center; gap: .55rem; padding: .5rem .65rem; border-radius: .7rem; background: rgba(0,0,0,.28); border: 1px solid var(--line); font-variant-numeric: tabular-nums; min-width: 0; }
+.sp-score.football .sp-team { flex: 1; min-width: 0; font-size: .86rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sp-score.football .sp-team:last-of-type { text-align: right; }
+.sp-goals { font-size: 1.25rem; font-weight: 800; letter-spacing: .02em; white-space: nowrap; }
+.sp-clock { flex: none; font-size: .72rem; font-weight: 800; padding: .2rem .45rem; border-radius: .35rem; background: var(--live); color: #fff; white-space: nowrap; }
+.sp-clock.ft { background: var(--surface-3); color: var(--text-2); }
+.sp-score.cricket { flex-direction: column; align-items: stretch; gap: .2rem; }
+.sp-inn { display: flex; gap: .6rem; font-size: .84rem; } .sp-inn b { width: 3.4rem; flex: none; } .sp-inn span { color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sp-note { font-size: .76rem; color: var(--warn); font-weight: 600; margin-top: .1rem; }
+.sp-podium { display: flex; gap: .8rem; flex: 1; min-width: 0; font-size: .82rem; font-weight: 600; overflow: hidden; }
+.sp-podium span { white-space: nowrap; } .sp-podium i { font-style: normal; color: var(--sport); margin-right: .25rem; font-weight: 800; }
+.osd-score { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; font-size: 1.15rem; font-weight: 600; font-variant-numeric: tabular-nums; padding: .45rem .8rem; border-radius: .7rem; background: rgba(0,0,0,.35); align-self: flex-start; }
+.osd-score b.g { font-size: 1.45rem; font-weight: 800; margin: 0 .2rem; }
+.osd-score em { font-style: normal; color: var(--muted); }
+.osd-score small { width: 100%; font-size: .85rem; color: var(--warn); }
