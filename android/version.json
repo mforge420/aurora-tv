@@ -1,11 +1,10 @@
 {
-    "versionCode": 4,
-    "versionName": "1.0.3",
+    "versionCode": 5,
+    "versionName": "1.0.4",
     "url": "https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk",
     "notes": [
-        "New: update Lumora TV from inside the app (Settings \u2192 About \u2192 Check for updates)",
-        "Playlists are now kept when you reopen the app",
-        "Side menu: Up/Down moves between menu items correctly",
-        "Smoother channel banner, more reliable TV guide, clearer stream errors"
+        "Settings: the side menu no longer pops up while moving through settings",
+        "Remote navigation: focus never gets lost after a screen refreshes",
+        "Left from a settings page goes to the settings sections first, then the side menu"
     ]
 }

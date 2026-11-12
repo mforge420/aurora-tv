@@ -19,12 +19,22 @@ export default function settingsView(root, { go }) {
   const content = h('div.set-content', { 'data-navgroup': '' });
   root.append(h('div.settings-layout', h('div.set-side', h('h1', 'Settings'), side), content));
 
+  // Section buttons are created once and only their state changes: replacing them
+  // while one had focus dropped the focus, and the next key press went to the side menu.
+  side.replaceChildren(...SECTIONS.map(([k, l, ic]) => h('button.set-tab', { dataset: { sec: k }, onclick: () => { if (sec !== k) { sec = k; draw(); } nav.focusFirst(content); }, onfocus: () => { if (sec !== k) { sec = k; draw(); } }, html: icon(ic) + `<span>${l}</span>` })));
   function drawNav() {
-    side.replaceChildren(...SECTIONS.map(([k, l, ic]) => h('button.set-tab' + (k === sec ? '.active' : ''), { onclick: () => { sec = k; draw(); nav.focusFirst(content); }, onfocus: () => { if (sec !== k) { sec = k; draw(); } }, html: icon(ic) + `<span>${l}</span>` })));
+    for (const b of side.children) b.classList.toggle('active', b.dataset.sec === sec);
   }
   function draw() {
     drawNav();
+    // keep focus on the same control when the content re-renders (e.g. after a toggle)
+    const ae = document.activeElement;
+    const idx = content.contains(ae) ? [...content.querySelectorAll('button,input,select,label.btn')].indexOf(ae) : -1;
     content.replaceChildren(...(SECTION_RENDER[sec]?.() || []));
+    if (idx > -1) {
+      const all = content.querySelectorAll('button,input,select,label.btn');
+      (all[Math.min(idx, all.length - 1)] || side.querySelector('.active'))?.focus({ preventScroll: true });
+    }
   }
 
   // ---------- helpers ----------
@@ -101,7 +111,7 @@ export default function settingsView(root, { go }) {
         h('p.muted.small', `${groups.length} live groups · ${hidden.size} hidden${pin ? ` · ${locked.size} locked` : ''}`),
         h('div.group-table', groups.map((g) => h('div.group-row',
           h('span.gname', g),
-          h('button.icon-btn' + (hidden.has(g) ? '.off' : ''), { title: hidden.has(g) ? 'Show' : 'Hide', onclick: () => { hidden.has(g) ? hidden.delete(g) : hidden.add(g); settings.set('hiddenGroups', [...hidden]); lib.rebuild(); const f = document.activeElement; draw(); refocus(f); }, html: icon(hidden.has(g) ? 'eyeoff' : 'eye') }),
+          h('button.icon-btn' + (hidden.has(g) ? '.off' : ''), { title: hidden.has(g) ? 'Show' : 'Hide', onclick: () => { hidden.has(g) ? hidden.delete(g) : hidden.add(g); settings.set('hiddenGroups', [...hidden]); lib.rebuild(); draw(); }, html: icon(hidden.has(g) ? 'eyeoff' : 'eye') }),
           pin && h('button.icon-btn' + (locked.has(g) ? '.on' : ''), { title: locked.has(g) ? 'Unlock' : 'Lock', onclick: async () => { if (locked.has(g)) { const p = await pinDialog(); if (p !== pin) return; locked.delete(g); } else locked.add(g); settings.set('lockedGroups', [...locked]); draw(); }, html: icon('lock') }))))];
     },
     backup: () => [
@@ -119,7 +129,6 @@ export default function settingsView(root, { go }) {
         h('p.muted.small', 'Lumora TV does not provide any content. Only use playlists you are entitled to.')),
     ],
   };
-  const refocus = (f) => requestAnimationFrame(() => { if (!f?.isConnected) nav.focusFirst(content); });
 
   function editEpg(s) {
     const i = h('input.text', { value: s.epgUrl || '', placeholder: 'https://…/epg.xml.gz', 'data-enter': 'nav' });
@@ -144,6 +153,24 @@ export default function settingsView(root, { go }) {
       setTimeout(() => location.reload(), 900);
     } catch (e) { toast(e.message, { type: 'error' }); }
   }
+
+  // Left from the settings content goes back to the settings sections, not the side menu;
+  // Up/Down never leave the content.
+  content.__keys = (k) => {
+    const ae = document.activeElement;
+    if (k === 'left' && !nav.find(ae, 'left', content)) { side.querySelector('.active')?.focus(); return true; }
+    if ((k === 'up' || k === 'down') && !nav.find(ae, k, content)) {
+      if (k === 'up') content.scrollTo({ top: 0, behavior: 'smooth' });
+      return true;
+    }
+    return false;
+  };
+  side.__keys = (k) => {
+    const ae = document.activeElement;
+    if (k === 'right') { nav.focusFirst(content); return true; }
+    if ((k === 'up' || k === 'down') && !nav.find(ae, k, side)) return true;
+    return false;
+  };
 
   draw();
   const off = lib.on('change', () => { if (sec === 'playlists') draw(); });

@@ -34,9 +34,15 @@ export const nav = {
     const g = root.querySelector('[data-autofocus]') || visibleFocusables(root)[0];
     return nav.focus(g);
   },
+  /** Next focusable from `from` in `dir`, searching only inside `scope` (no focus change) */
+  find(from, dir, scope) { return findNext(from, dir, scope); },
   move(dir, from = document.activeElement) {
     const scope = currentScope();
-    if (!from || from === document.body || !scope.contains(from)) return nav.focusFirst(scope);
+    if (!from || from === document.body || !scope.contains(from)) {
+      // Focus was lost (element re-rendered): go back into the current screen, not the side menu
+      if (scope.id === 'app' && nav.recover?.()) return true;
+      return nav.focusFirst(scope);
+    }
     const target = findNext(from, dir, scope);
     if (target) return nav.focus(rememberOrSelf(target, from));
     return false;
@@ -63,6 +69,8 @@ function scrollIntoViewIfNeeded(el) {
 }
 
 function rememberOrSelf(target, from) {
+  const side = target.closest('[data-nav-side]');
+  if (side && !side.contains(from)) return side.querySelector('.active') || target;
   const g = target.closest('[data-navgroup]');
   if (g && !g.contains(from) && g._last && g._last.isConnected && visible(g._last)) return g._last;
   if (g && !g.contains(from) && g._entry) { const e = g._entry(); if (e) return e; }
@@ -75,10 +83,13 @@ document.addEventListener('focusin', (e) => {
 
 function findNext(from, dir, scope) {
   const fr = from.getBoundingClientRect();
+  // The side menu ([data-nav-side]) is only entered deliberately, by pressing Left
+  const fromSide = !!from.closest('[data-nav-side]');
   const fx = fr.left + fr.width / 2, fy = fr.top + fr.height / 2;
   let best = null, bestScore = Infinity;
   for (const el of scope.querySelectorAll(FOCUSABLE)) {
     if (el === from || from.contains(el)) continue;
+    if (!fromSide && dir !== 'left' && el.closest('[data-nav-side]')) continue;
     const r = el.getBoundingClientRect();
     if (!r.width || !r.height) continue;
     if (el.closest('[inert],[hidden]')) continue;

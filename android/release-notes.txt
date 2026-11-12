@@ -1,4 +1,3 @@
-- New: update Lumora TV from inside the app (Settings → About → Check for updates)
-- Playlists are now kept when you reopen the app
-- Side menu: Up/Down moves between menu items correctly
-- Smoother channel banner, more reliable TV guide, clearer stream errors
+- Settings: the side menu no longer pops up while moving through settings
+- Remote navigation: focus never gets lost after a screen refreshes
+- Left from a settings page goes to the settings sections first, then the side menu

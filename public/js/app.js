@@ -92,6 +92,10 @@ nav.backHandler = () => {
     confirmDialog('Exit Lumora TV?', null, { ok: 'Exit' }).then((yes) => yes && nativeApi.exit());
   }
 };
+nav.recover = () => {
+  focusView();
+  return viewEl.contains(document.activeElement);
+};
 nav.fallback = (k) => {
   if (k === 'guide') { go('guide'); return true; }
   if (k === 'search') { go('search'); return true; }
