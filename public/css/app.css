@@ -790,3 +790,16 @@ html.native .poster:focus .art { box-shadow: 0 0 0 3px var(--accent); }
 .active-pill .i { width: 1rem; height: 1rem; stroke-width: 2.6; }
 .sm-use { height: 2.6rem; font-size: .85rem; padding: 0 .9rem; }
 @media (max-width: 800px) { .pl-switch { display: none !important; } }
+
+/* multi-view: playlists & stream limits */
+.mv-usage { display: flex; gap: .4rem; flex-wrap: wrap; }
+.mv-use { font-size: .78rem; padding: .3rem .6rem; border-radius: 99px; background: var(--surface-2); color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mv-use b { font-weight: 600; color: var(--text); }
+.mv-use.full { background: rgba(255,93,108,.14); color: #ff8b96; }
+.mv-src.on { background: var(--surface-3); color: var(--text); box-shadow: inset 0 0 0 1.5px var(--accent); }
+.mv-src.full small { color: #ff8b96; }
+.mv-src.on:focus, .mv-src:focus { background: var(--accent); color: var(--accent-ink); } .mv-src:focus small { color: var(--accent-ink); }
+.mv-srcs { display: flex; gap: .5rem; flex-wrap: wrap; }
+.mv-note { font-size: .82rem; color: #ff8b96; margin: 0; }
+.mv-src.full:not(.on) { opacity: .75; }
+.mv-label .mv-from { font-style: normal; font-size: .72rem; font-weight: 600; color: var(--accent); background: rgba(0,0,0,.35); padding: .1rem .4rem; border-radius: .3rem; margin-left: .2rem; }

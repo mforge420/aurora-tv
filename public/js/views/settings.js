@@ -62,6 +62,7 @@ export default function settingsView(root, { go }) {
           h('div.src-main',
             h('b', s.name), h('small.muted', s.type === 'xtream' ? `Xtream · ${s.server}` : s.local ? 'Local file' : s.url),
             h('div.src-stats', h('span', `${c.live.toLocaleString()} channels`), h('span', `${c.movies.toLocaleString()} movies`), h('span', `${c.series.toLocaleString()} series`),
+              h('span', `${lib.maxStreams(s)} screen${lib.maxStreams(s) > 1 ? 's' : ''} at once`),
               h('span', `Updated ${ago(s.updated)}`), exp && h('span', `Expires ${exp}`), s.remoteId && h('span.managed', 'Managed from portal')),
             h('div.src-stats', h('span', s.epgUrl ? `Guide: ${s.epgCount ? s.epgCount.toLocaleString() + ' channels · ' : ''}${ago(s.epgUpdated)}` : 'No guide URL'), s.epgError && h('span.err', 'Guide error: ' + s.epgError))),
           h('div.src-actions',
@@ -70,6 +71,11 @@ export default function settingsView(root, { go }) {
               : h('button.btn.ghost.sm-use', { onclick: () => { lib.setActive(s.id); draw(); toast(`Now watching: ${s.name}`, { icon: 'check', type: 'ok' }); }, html: icon('play') + '<span>Use this playlist</span>' })),
             !s.local && h('button.icon-btn', { title: 'Refresh playlist', onclick: async (e) => { const b = e.currentTarget; b.classList.add('spin'); try { await lib.refreshSource(s); lib.rebuild(); toast('Playlist refreshed', { type: 'ok', icon: 'check' }); } catch (er) { toast(er.message, { type: 'error' }); } b.classList.remove('spin'); draw(); }, html: icon('refresh') }),
             h('button.icon-btn', { title: 'Edit guide URL', onclick: () => editEpg(s), html: icon('guide') }),
+            h('button.icon-btn', { title: 'Screens allowed at once', onclick: async () => {
+              const prov = Number(s.account?.maxConn) || 0;
+              const c = await choose('Streams allowed at once', [1, 2, 3, 4, 5].map((n) => ({ id: n, label: `${n} screen${n > 1 ? 's' : ''}`, hint: n === prov ? 'Your provider\'s limit' : '', active: n === lib.maxStreams(s) })));
+              if (c) { s.maxConn = c.id; lib.saveSources(); draw(); }
+            }, html: icon('grid') }),
             h('button.icon-btn.danger', { title: 'Remove', onclick: async () => { if (await confirmDialog('Remove playlist?', `“${s.name}” and its guide data will be removed from this device.`, { ok: 'Remove', danger: true })) { await lib.removeSource(s.id); draw(); } }, html: icon('trash') })));
       }) : [h('div.empty-state', { html: `${icon('list')}<span>No playlists yet</span>` })]),
       row('Refresh everything', 'Reload all playlists and guide data now', h('button.btn.ghost', { onclick: async (e) => { const b = e.currentTarget; b.disabled = true; b.lastChild.textContent = 'Refreshing…'; await lib.refreshAll(); b.disabled = false; draw(); toast('All sources refreshed', { type: 'ok', icon: 'check' }); }, html: icon('refresh') + '<span>Refresh</span>' })),

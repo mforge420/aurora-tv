@@ -1,10 +1,11 @@
 {
-    "versionCode": 18,
-    "versionName": "1.0.17",
+    "versionCode": 19,
+    "versionName": "1.0.18",
     "url": "https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk",
     "notes": [
-        "One playlist is now active at a time; the side menu shows which one, and pressing it lets you switch (or choose \"All playlists\")",
-        "Settings \u2192 Playlists marks the active playlist and has \"Use this playlist\" on the others",
-        "Adding a playlist on the TV makes it active; the portal can also switch the TV's playlist"
+        "Multi-view: pick each screen's channel from any of your playlists; every screen shows which playlist it uses",
+        "Stream limits per playlist are respected (e.g. \"Provider A 1/1\"): a playlist with no streams left can't be used for another screen",
+        "Set how many screens each playlist allows in Settings \u2192 Playlists (Xtream limits are read from your provider)",
+        "Hold OK on a multi-view screen to change, remove or watch it fullscreen"
     ]
 }

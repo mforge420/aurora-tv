@@ -134,6 +134,16 @@ class Library extends Emitter {
   }
   activeSources() { const a = this.activeId(); return a === 'all' ? this.sources : this.sources.filter((s) => s.id === a); }
   activeName() { const a = this.activeId(); return a === 'all' ? 'All playlists' : this.source(a)?.name || ''; }
+  /** Live channels of any playlist (active or not), e.g. for multi-view */
+  channelsOf(srcId) {
+    const hidden = new Set(settings.get('hiddenGroups'));
+    return (this.source(srcId)?._cat?.live || []).filter((c) => !hidden.has(c.group));
+  }
+  /** How many streams this playlist may play at once (provider info, user override, else 1) */
+  maxStreams(src) {
+    if (!src) return 1;
+    return Number(src.maxConn) || Number(src.account?.maxConn) || 1;
+  }
   setActive(id) {
     if (id === this.activeId()) return;
     settings.set('activeSource', id);
