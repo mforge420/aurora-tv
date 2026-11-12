@@ -106,8 +106,9 @@ export default function liveView(root, { go }) {
   }
   function activate(ch) {
     clearTimeout(previewT);
+    // OK on the channel that's already in the preview → fullscreen; otherwise preview it.
     if (player.isPlaying(ch.id) && player.mode === 'preview' && player.state !== 'error') player.fullscreen();
-    else if (window.matchMedia('(pointer: coarse)').matches || !settings.get('previewAutoplay')) player.playChannel(ch, { list: channels });
+    else if (window.matchMedia('(pointer: coarse)').matches) player.playChannel(ch, { list: channels }); // touch: straight to fullscreen
     else player.playChannel(ch, { list: channels, preview: true });
   }
 

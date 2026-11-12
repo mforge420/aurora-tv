@@ -124,7 +124,8 @@ export default function guideView(root, { arg, go }) {
     const now = Date.now(), live = p.start <= now && p.stop > now, past = p.stop <= now;
     const cu = past && lib.canCatchup(ch, p);
     const state = live ? '<span class="live-pill">LIVE</span>' : past ? (cu ? '<span class="cu-pill">CATCH-UP</span>' : '<span class="pill">ENDED</span>') : '<span class="pill">UPCOMING</span>';
-    const action = p.placeholder ? 'Watch channel' : live ? 'Watch now' : past ? (cu ? 'Play from catch-up' : 'Watch channel live') : (lib.hasReminder(ch, p.start) ? 'Cancel reminder' : 'Set reminder');
+    const inPreview = player.isPlaying(ch.id) && player.mode === 'preview';
+    const action = p.placeholder || live ? (inPreview ? 'Watch fullscreen' : 'Preview channel') : past ? (cu ? 'Play from catch-up' : 'Watch channel live') : (lib.hasReminder(ch, p.start) ? 'Cancel reminder' : 'Set reminder');
     detail.innerHTML = `
       <div class="g-d-ch"><span class="lg"></span><span>${settings.get('showChannelNumbers') ? ch.num + ' · ' : ''}${esc(ch.name)}</span></div>
       <h2>${esc(p.title)} ${p.ep ? `<span class="ep">${esc(p.ep)}</span>` : ''}</h2>
@@ -184,7 +185,11 @@ export default function guideView(root, { arg, go }) {
     const ch = rows[rowIdx], p = focusedProg();
     if (!ch || !p) return;
     const now = Date.now();
-    if (p.placeholder || (p.start <= now && p.stop > now)) return player.playChannel(ch, { list: rows });
+    if (p.placeholder || (p.start <= now && p.stop > now)) {
+      // same as Live TV: first OK previews, OK on the previewing channel goes fullscreen
+      if ((player.isPlaying(ch.id) && player.mode === 'preview' && player.state !== 'error') || window.matchMedia('(pointer: coarse)').matches) return player.playChannel(ch, { list: rows });
+      player.playChannel(ch, { list: rows, preview: true }); draw(); updateDetail(); return;
+    }
     if (p.stop <= now) return lib.canCatchup(ch, p) ? player.playCatchup(ch, p) : player.playChannel(ch, { list: rows });
     const on = lib.toggleReminder(ch, [p.start, p.stop, p.title]);
     toast(on ? `Reminder set · ${p.title} at ${fmtClock(p.start)}` : 'Reminder removed', { icon: 'bell' });

@@ -60,7 +60,8 @@ export async function go(name, arg) {
   if (name === currentName && !arg) { focusView(); return; }
   const mod = name === 'welcome' ? await import('./views/welcome.js') : await VIEWS[name].load();
   current?.destroy?.();
-  if (player.mode === 'preview') player.attachPreview(null);
+  // Live TV and the guide both have a preview window: keep the channel playing between them
+  if (player.mode === 'preview' && name !== 'live' && name !== 'guide') player.attachPreview(null);
   currentName = name;
   viewEl.replaceChildren();
   viewEl.dataset.view = name;

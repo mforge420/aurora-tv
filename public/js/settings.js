@@ -5,7 +5,7 @@ const DEFAULTS = {
   clock24: true,
   proxyMode: 'auto',         // auto | always | never
   xtreamFormat: 'm3u8',      // m3u8 | ts
-  previewAutoplay: true,
+  previewAutoplay: false,     // false: scrolling keeps the current video, OK previews, OK again = fullscreen
   previewMuted: false,
   showChannelNumbers: true,
   epgTimeShift: 0,           // hours
@@ -27,6 +27,8 @@ class Settings extends Emitter {
   constructor() {
     super();
     this.v = { ...DEFAULTS, ...store.get('settings', {}) };
+    // v2: preview now starts on OK instead of while scrolling (old installs saved `true`)
+    if ((this.v.settingsVersion || 1) < 2) { this.v.previewAutoplay = false; this.v.settingsVersion = 2; store.set('settings', this.v); }
   }
   get(k) { return this.v[k]; }
   set(k, val) {

@@ -1,2 +1,3 @@
-- Channel logos now show in the TV guide, channel list and banner, including logos that only come from your provider's guide data
-- Logos and posters load through the app's own connection (works with http logo servers and redirects) and are cached, so they appear instantly
+- Scrolling through channels keeps the current video playing; press OK to preview a channel, OK again for fullscreen
+- The TV guide works the same way, and the playing channel continues in the guide's preview window
+- Prefer the old behaviour? Settings → Playback → Preview while scrolling

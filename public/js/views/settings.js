@@ -79,7 +79,7 @@ export default function settingsView(root, { go }) {
     ],
     player: () => [
       h('h2', 'Playback'),
-      row('Preview on focus', 'Play channels in the preview window while browsing', toggle('previewAutoplay')),
+      row('Preview while scrolling', 'Off: the current channel keeps playing while you browse; OK previews, OK again goes fullscreen', toggle('previewAutoplay')),
       row('Mute previews', null, toggle('previewMuted')),
       row('Resume last channel on start', null, toggle('startOnLastChannel')),
       row('Auto-play next episode', null, toggle('autoplayNextEpisode')),
