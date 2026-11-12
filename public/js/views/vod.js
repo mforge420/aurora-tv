@@ -193,7 +193,7 @@ async function openSeries(s) {
   }
   let cont = nextUp();
   let season = cont.ep?.season ?? sNums[0];
-  const epList = h('div.episodes', { 'data-navgroup': '' });
+  const epList = h('div.episodes', { 'data-navgroup': '', 'data-longpress': '' });
   const tabs = h('div.season-tabs', { 'data-navgroup': '' });
   const mk = (e) => ({ id: e.id, name: e.title, logo: e.img || s.cover, group: s.name });
   const nextFn = (i) => () => {
@@ -295,7 +295,7 @@ async function openSeries(s) {
   };
   epList.__keys = (k) => {
     const el = document.activeElement;
-    if (k === 'menu' || k === 'info') { if (el?.__ep) episodeMenu(el.__ep); return true; }
+    if (k === 'menu' || k === 'info' || k === 'longok') { if (el?.__ep) episodeMenu(el.__ep); return true; }
     if (k === 'up') {
       const r = el.getBoundingClientRect();
       const above = [...epList.children].some((c) => c.getBoundingClientRect().bottom <= r.top + 1);
@@ -322,7 +322,7 @@ async function openSeries(s) {
           contEp && h('button.btn.primary', { 'data-autofocus': true, onclick: () => playEp(cont.ep, lib.resume[cont.ep.id]?.pos || 0), html: icon('play') + `<span>${cont.label} S${contEp.season} E${contEp.episode}</span>` }),
           favBtn))),
     sNums.length ? tabs : h('p.muted', 'No episodes found'),
-    sNums.length ? h('p.ep-hint.muted.small', { html: '<kbd>Menu</kbd> on an episode: mark watched / unwatched' }) : null,
+    sNums.length ? h('p.ep-hint.muted.small', { html: '<b>Hold OK</b> (or press <kbd>Menu</kbd>) on an episode to mark it watched / unwatched' }) : null,
     epList);
   const actions = body.querySelector('.actions');
   if (actions && sNums.length) actions.__keys = (k) => { if (k === 'down') { tabBtns.get(season)?.focus(); return true; } return false; };

@@ -38,11 +38,12 @@ export default function liveView(root, { go }) {
     keys: (k, e, ch) => {
       if (k === 'left') { gl.focus(); return true; }
       if (k === 'right') { infoPanel.querySelector('button')?.focus(); return true; }
-      if (k === 'menu') { contextMenu(ch); return true; }
+      if (k === 'menu' || k === 'longok') { contextMenu(ch); return true; }
       if (k === 'digit') { jumpDigit(e.key); return true; }
       return false;
     },
   });
+  cl.el.dataset.longpress = '';
   cl.el.addEventListener('dblclick', (e) => { const r = e.target.closest('.vrow'); if (r) player.playChannel(cl.items[+r.dataset.i], { list: channels }); });
   cl.el.addEventListener('contextmenu', (e) => { const r = e.target.closest('.vrow'); if (r) { e.preventDefault(); contextMenu(cl.items[+r.dataset.i]); } });
 

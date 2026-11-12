@@ -19,6 +19,7 @@ export function keyOf(e) {
 
 const FOCUSABLE = 'button:not([disabled]),input:not([disabled]),select,textarea,a[href],[tabindex="0"],[data-f]';
 const handlers = [];
+let lp = null; // pending OK long-press
 
 export const nav = {
   /** Push a modal key handler; returns a remover. Handler(key, event) -> true if handled */
@@ -123,6 +124,20 @@ document.addEventListener('keydown', (e) => {
   }
   if (!key) return;
   if (key === 'back' && e.key === 'Backspace' && typing) return;
+  // Hold OK = options (for remotes without a Menu button). Inside [data-longpress]
+  // the press is only activated on key-up, so a hold doesn't also start playback.
+  if (key === 'ok' && e.isTrusted && !typing && ae?.closest?.('[data-longpress]')) {
+    e.preventDefault();
+    if (e.repeat) return;
+    if (lp) clearTimeout(lp.timer);
+    const el = ae;
+    lp = { el, fired: false, timer: setTimeout(() => {
+      if (!lp || lp.el !== el) return;
+      lp.fired = true;
+      for (let x = el; x && x !== document.body; x = x.parentElement) if (x.__keys && x.__keys('longok', e)) break;
+    }, 550) };
+    return;
+  }
   // 1. modal handlers (fullscreen player etc)
   for (let i = handlers.length - 1; i >= 0; i--) {
     if (handlers[i](key, e)) { e.preventDefault(); return; }
@@ -144,3 +159,12 @@ document.addEventListener('keydown', (e) => {
     nav.backHandler?.();
   } else if (nav.fallback?.(key, e)) e.preventDefault();
 }, true);
+
+document.addEventListener('keyup', (e) => {
+  if (!lp || keyOf(e) !== 'ok') return;
+  const { el, fired, timer } = lp;
+  lp = null; clearTimeout(timer);
+  e.preventDefault();
+  if (!fired && el.isConnected && document.activeElement === el) el.click();
+}, true);
+window.addEventListener('blur', () => { if (lp) { clearTimeout(lp.timer); lp = null; } });

@@ -1,4 +1,3 @@
-- Series now show what you've watched: ✓ on watched episodes, progress and "min left" on started ones, and an UP NEXT badge
-- Season tabs show how many episodes you've watched; the main button continues with the right next episode
-- Press Menu on an episode to mark it, everything up to it, or a whole season as watched / unwatched
-- New "Continue watching" row for series; posters show where you are (e.g. S2 E5); watched movies get a ✓
+- Hold OK on an episode to mark it watched / unwatched (works on remotes without a Menu button)
+- Hold OK on a channel in Live TV for channel options (favorite, guide, multi-view, hide group)
+- A short press on OK works exactly as before
