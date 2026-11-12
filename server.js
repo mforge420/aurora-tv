@@ -19,6 +19,7 @@ const ROOT = path.join(__dirname, 'public');
 const VENDOR = {
   '/vendor/hls.min.js': path.join(__dirname, 'node_modules/hls.js/dist/hls.min.js'),
   '/vendor/mpegts.js': path.join(__dirname, 'node_modules/mpegts.js/dist/mpegts.js'),
+  '/vendor/qrcode.js': path.join(__dirname, 'node_modules/qrcode-generator/qrcode.js'),
 };
 const DEFAULT_UA = 'Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36';
 

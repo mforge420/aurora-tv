@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07080d">
+<title>Lumora TV · Add playlist</title>
+<link rel="icon" href="/icon.svg">
+<style>
+  :root { --bg:#07080d; --s:rgba(255,255,255,.05); --s2:rgba(255,255,255,.09); --line:rgba(255,255,255,.1); --t:#eef0f8; --m:#8a8fa6; --a:#8b9cff; --grad:linear-gradient(120deg,#5eead4,#8b9cff 50%,#e48cf7); --err:#ff8b96; --ok:#4ade80; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; background: radial-gradient(circle at 20% 0%, rgba(139,156,255,.25), transparent 50%), radial-gradient(circle at 100% 100%, rgba(94,234,212,.15), transparent 50%), var(--bg); color:var(--t); font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif; padding: 24px 16px calc(24px + env(safe-area-inset-bottom)); }
+  main { max-width: 440px; margin: 0 auto; }
+  header { display:flex; align-items:center; gap:12px; margin-bottom: 22px; }
+  header img { width:44px; height:44px; }
+  h1 { font-size: 22px; margin:0; letter-spacing:-.02em; } header p { margin:2px 0 0; color:var(--m); font-size:14px; }
+  .tabs { display:flex; gap:6px; padding:5px; background:var(--s); border-radius:14px; margin-bottom: 18px; }
+  .tabs button { flex:1; height:42px; border:0; border-radius:10px; background:none; color:var(--m); font:600 15px inherit; font-family:inherit; }
+  .tabs button.on { background:var(--s2); color:var(--t); }
+  label { display:block; margin-bottom: 14px; } label span { display:block; font-size:13px; font-weight:600; color:#c3c7d6; margin-bottom:6px; }
+  input { width:100%; height:50px; padding:0 14px; border-radius:12px; border:1px solid var(--line); background:var(--s); color:var(--t); font: 16px inherit; font-family:inherit; }
+  input:focus { outline:none; border-color:var(--a); box-shadow:0 0 0 3px rgba(139,156,255,.25); }
+  small { color:var(--m); font-size:12px; }
+  .row { display:flex; gap:10px; } .row label { flex:1; }
+  .pin input { letter-spacing: .4em; font-weight:700; font-size: 20px; text-align:center; }
+  button.go { width:100%; height:54px; border:0; border-radius:14px; background:var(--grad); color:#0a0b14; font: 700 17px inherit; font-family:inherit; margin-top: 6px; }
+  button.go:disabled { opacity:.6; }
+  .status { margin-top:16px; min-height: 24px; font-size:15px; text-align:center; }
+  .status.err { color: var(--err); } .status.ok { color: var(--ok); font-weight:600; }
+  .note { margin-top: 26px; color: var(--m); font-size: 12px; text-align: center; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header><img src="/icon.svg" alt=""><div><h1>Add a playlist</h1><p>It will appear on your TV right away.</p></div></header>
+  <div class="tabs"><button type="button" data-t="xtream" class="on">Xtream Codes</button><button type="button" data-t="m3u">M3U link</button></div>
+  <form id="f" autocomplete="off">
+    <label><span>Name (optional)</span><input name="name" placeholder="My provider"></label>
+    <div data-for="xtream">
+      <label><span>Server URL</span><input name="server" inputmode="url" autocapitalize="off" spellcheck="false" placeholder="http://provider.example:8080"></label>
+      <div class="row">
+        <label><span>Username</span><input name="user" autocapitalize="off" spellcheck="false"></label>
+        <label><span>Password</span><input name="pass" type="password" autocapitalize="off"></label>
+      </div>
+    </div>
+    <div data-for="m3u" hidden>
+      <label><span>Playlist URL</span><input name="url" inputmode="url" autocapitalize="off" spellcheck="false" placeholder="https://…/playlist.m3u"></label>
+      <label><span>TV guide (XMLTV) URL</span><input name="epgUrl" inputmode="url" autocapitalize="off" spellcheck="false" placeholder="Optional"><small>Leave empty to detect it from the playlist.</small></label>
+    </div>
+    <label class="pin" id="pinRow"><span>Code shown on the TV</span><input name="pin" inputmode="numeric" maxlength="4" placeholder="••••"></label>
+    <button class="go" type="submit">Send to TV</button>
+    <div class="status" id="st"></div>
+  </form>
+  <p class="note">Sent over your home Wi-Fi straight to your TV. Nothing is stored online.</p>
+</main>
+<script>
+  const f = document.getElementById('f'), st = document.getElementById('st'), btn = f.querySelector('.go');
+  let type = 'xtream';
+  const pin = new URLSearchParams(location.search).get('pin');
+  if (pin) { f.pin.value = pin; document.getElementById('pinRow').hidden = true; }
+  document.querySelectorAll('.tabs button').forEach((b) => b.onclick = () => {
+    type = b.dataset.t;
+    document.querySelectorAll('.tabs button').forEach((x) => x.classList.toggle('on', x === b));
+    document.querySelectorAll('[data-for]').forEach((d) => d.hidden = d.dataset.for !== type);
+  });
+  const say = (msg, cls = '') => { st.className = 'status ' + cls; st.textContent = msg; };
+  f.onsubmit = async (e) => {
+    e.preventDefault();
+    const v = (n) => f[n].value.trim();
+    const body = { pin: v('pin'), type, name: v('name') };
+    if (type === 'xtream') {
+      if (!v('server') || !v('user')) return say('Enter the server URL and username.', 'err');
+      Object.assign(body, { server: v('server'), user: v('user'), pass: f.pass.value });
+    } else {
+      if (!/^https?:\/\//i.test(v('url'))) return say('Enter a playlist link starting with http:// or https://', 'err');
+      Object.assign(body, { url: v('url'), epgUrl: v('epgUrl') });
+    }
+    if (!/^\d{4}$/.test(body.pin)) { document.getElementById('pinRow').hidden = false; return say('Enter the 4-digit code shown on the TV.', 'err'); }
+    btn.disabled = true; say('Sending to your TV…');
+    try {
+      const r = await fetch('/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || 'The TV refused the request');
+      say('Loading on your TV…');
+      for (let i = 0; i < 240; i++) {
+        await new Promise((res) => setTimeout(res, 1500));
+        const s = await fetch('/status', { cache: 'no-store' }).then((x) => x.json()).catch(() => null);
+        if (!s) continue;
+        if (s.state === 'done') { say('✓ ' + (s.message || 'Added to your TV'), 'ok'); btn.disabled = false; return; }
+        if (s.state === 'error') throw new Error(s.message || 'The TV could not load this playlist');
+        if (s.message) say(s.message + '…');
+      }
+      say('Still working — check your TV.');
+    } catch (err) {
+      say(err.message === 'Failed to fetch' ? 'Lost connection to the TV. Is “From phone” still open on the TV?' : err.message, 'err');
+    }
+    btn.disabled = false;
+  };
+</script>
+</body>
+</html>

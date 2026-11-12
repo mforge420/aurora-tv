@@ -1,6 +1,7 @@
 import { h } from '../util.js';
 import { icon } from '../ui.js';
 import { addSourceDialog } from './addsource.js';
+import { isNative } from '../native.js';
 
 export default function welcome(root, { go }) {
   const add = async () => { const s = await addSourceDialog(); if (s) go('live'); };
@@ -11,6 +12,7 @@ export default function welcome(root, { go }) {
       h('p.lead', 'A fast, beautiful home for your live TV, movies and series. Add your provider’s playlist to get started.'),
       h('div.row.center.gap',
         h('button.btn.primary.lg', { 'data-autofocus': true, onclick: add, html: `${icon('plus')}<span>Add playlist</span>` }),
+        isNative ? h('button.btn.ghost.lg', { onclick: async () => { if (await addSourceDialog({ tab: 'phone' })) go('live'); }, html: `${icon('link')}<span>Add from phone</span>` }) : null,
         h('button.btn.ghost.lg', { onclick: () => go('settings'), html: `${icon('settings')}<span>Settings</span>` })),
       h('div.features',
         feat('guide', 'Full TV guide', 'Blazing fast XMLTV EPG with catch-up and reminders'),

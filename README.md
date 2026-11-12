@@ -2,7 +2,7 @@
 
 A fast, good-looking IPTV player for **M3U** and **Xtream Codes** playlists with an **XMLTV TV guide**. It's built for TV remotes first, and also works with a keyboard, mouse or touch screen.
 
-**📥 Download the Android TV / Fire TV app (latest, v1.0.14):** [LumoraTV-1.0.0.apk](https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk)
+**📥 Download the Android TV / Fire TV app (latest, v1.0.15):** [LumoraTV-1.0.0.apk](https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk)
 (Fire TV *Downloader* code: **2139190**, or the URL `https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk`)
 
 > Lumora TV is only a player. It does not include any channels or content.
@@ -15,6 +15,10 @@ A fast, good-looking IPTV player for **M3U** and **Xtream Codes** playlists with
 - **No server needed**: the playlist/guide/stream proxy is built into the app, so providers that block web access work out of the box.
 - The UI is the same Lumora interface, drawn in a transparent WebView over the native video surface. The preview window, guide, overlays and multi-view all carry over.
 - Leanback launcher banner, remote keys (Back, CH±, Play/Pause, FF/RW, Guide, Info, Menu, colour buttons), immersive full-screen, keep-screen-on while playing, backup export to Downloads.
+
+### Add playlists from your phone
+
+*Add playlist → From phone* shows a QR code. Scan it with your phone, enter the Xtream / M3U details with the phone keyboard, and tap *Send to TV*. The TV runs a small web page on your home network (port 8686) only while that screen is open. It's protected by a one-time 4-digit code (locked after 10 wrong attempts), and nothing goes through the internet.
 
 ### Build
 

@@ -51,6 +51,9 @@ class MainActivity : ComponentActivity() {
     private lateinit var player: NativePlayer
     private lateinit var server: LocalServer
     private lateinit var updater: Updater
+    private val remote by lazy {
+        RemoteServer({ name -> runCatching { assets.open("www/$name").use { it.readBytes() } }.getOrNull() }) { j -> emitToWeb("remote-add", j.toString()) }
+    }
     private var fileCallback: ValueCallback<Array<Uri>>? = null
     private var rectAnim: ValueAnimator? = null
     private val crashTimes = mutableListOf<Long>()
@@ -291,6 +294,16 @@ class MainActivity : ComponentActivity() {
         /** The page tells us when a text field has focus (OK must then open the keyboard). */
         @JavascriptInterface fun setTextFocus(on: Boolean) { textFocus = on }
 
+        // ---- "Add from phone": LAN page shown while the QR code is on screen
+        @JavascriptInterface fun remoteStart(): String {
+            val ip = RemoteServer.lanAddress() ?: return JSONObject().put("error", "This TV isn't connected to a local network").toString()
+            val port = remote.start()
+            if (port <= 0) return JSONObject().put("error", "Couldn't open the connection").toString()
+            return JSONObject().put("url", "http://$ip:$port/").put("pin", remote.pin).toString()
+        }
+        @JavascriptInterface fun remoteStop() { remote.stop() }
+        @JavascriptInterface fun remoteResult(json: String) { remote.lastResult = json }
+
         // ---- in-app updates
         @JavascriptInterface fun appVersion(): String = updater.currentVersion().toString()
         @JavascriptInterface fun canInstall(): Boolean = updater.canInstall()
@@ -326,7 +339,7 @@ class MainActivity : ComponentActivity() {
     override fun onPause() { super.onPause(); player.pause(); web.onPause() }
     override fun onResume() { super.onResume(); web.onResume(); emitToWeb("resume", "") }
     override fun onSaveInstanceState(outState: Bundle) { super.onSaveInstanceState(outState); web.saveState(outState) }
-    override fun onDestroy() { player.release(); web.destroy(); super.onDestroy() }
+    override fun onDestroy() { remote.stop(); player.release(); web.destroy(); super.onDestroy() }
 
     private fun checkWebViewVersion() {
         val pkg = WebViewCompat.getCurrentWebViewPackage(this) ?: return

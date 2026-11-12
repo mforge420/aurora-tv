@@ -20,8 +20,8 @@ android {
         applicationId = "app.lumoratv.player"
         minSdk = 24
         targetSdk = 35
-        versionCode = 15
-        versionName = "1.0.14"
+        versionCode = 16
+        versionName = "1.0.15"
     }
 
     signingConfigs {
@@ -61,6 +61,7 @@ val syncWebAssets by tasks.registering(Sync::class) {
     from(File(repo, "public")) { into("www") }
     from(File(repo, "node_modules/hls.js/dist/hls.min.js")) { into("www/vendor") }
     from(File(repo, "node_modules/mpegts.js/dist/mpegts.js")) { into("www/vendor") }
+    from(File(repo, "node_modules/qrcode-generator/qrcode.js")) { into("www/vendor") }
     into(layout.buildDirectory.dir("generated/webassets"))
     doFirst {
         require(File(repo, "node_modules/hls.js").exists()) { "Run `npm install` in ${repo} first" }

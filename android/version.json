@@ -1,9 +1,9 @@
 {
-    "versionCode": 15,
-    "versionName": "1.0.14",
+    "versionCode": 16,
+    "versionName": "1.0.15",
     "url": "https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk",
     "notes": [
-        "TV guide: the channel column now shows the full channel name (up to two lines) next to the logo, with no empty gap",
-        "Country tags already shown by the group (e.g. \"[UK]\") are left out to save space; divider channels show as clean labels"
+        "New: add playlists from your phone. Choose Add playlist \u2192 From phone, scan the QR code, type your details on the phone and tap Send to TV",
+        "Works over your home Wi-Fi only, protected by a one-time code shown on the TV; nothing is sent to the internet"
     ]
 }
