@@ -2,6 +2,9 @@
 
 A fast, good-looking IPTV player for **M3U** and **Xtream Codes** playlists with an **XMLTV TV guide**. It's built for TV remotes first, and also works with a keyboard, mouse or touch screen.
 
+**📥 Download the Android TV / Fire TV app:** [AuroraTV-1.0.0.apk](https://github.com/mforge420/aurora-tv/raw/main/android/AuroraTV-1.0.0.apk)
+(Fire TV *Downloader* app: `https://github.com/mforge420/aurora-tv/raw/main/android/AuroraTV-1.0.0.apk`)
+
 > Aurora TV is only a player. It does not include any channels or content.
 
 ## Android TV app (native)
