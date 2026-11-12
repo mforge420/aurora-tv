@@ -42,6 +42,10 @@ const P = {
   check: '<path d="M20 6 9 17l-5-5"/>',
   history: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/>',
   tv: '<rect x="2" y="7" width="20" height="14" rx="2"/><path d="m17 2-5 5-5-5"/>',
+  trophy: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>',
+  football: '<circle cx="12" cy="12" r="9.5"/><path d="m12 7.5 3.8 2.8-1.5 4.4H9.7l-1.5-4.4z"/><path d="M12 7.5V2.6M15.8 10.3l4.6-1.5M14.3 14.7l2.8 4M9.7 14.7l-2.8 4M8.2 10.3 3.6 8.8"/>',
+  cricket: '<path d="m4 20 2.5-2.5M6.5 17.5l9.8-9.8a1.4 1.4 0 0 0 0-2l-2-2a1.4 1.4 0 0 0-2 0L2.5 13.5"/><path d="m6.5 17.5-2-2"/><circle cx="18.5" cy="18.5" r="2.5"/>',
+  f1: '<path d="M4 21V4"/><path d="M4 4h15v10H4"/><path d="M4 4h3.75v2.5H4zM11.5 4h3.75v2.5H11.5zM7.75 6.5h3.75V9H7.75zM15.25 6.5H19V9h-3.75zM4 9h3.75v2.5H4zM11.5 9h3.75v2.5H11.5zM7.75 11.5h3.75V14H7.75zM15.25 11.5H19V14h-3.75z" fill="currentColor" stroke="none"/>',
   skip: '<path d="m5 4 10 8-10 8z" fill="currentColor"/><path d="M19 5v14"/>',
 };
 export const icon = (n, cls = '') => `<svg class="i ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n] || ''}</svg>`;

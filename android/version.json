@@ -1,10 +1,10 @@
 {
-    "versionCode": 7,
-    "versionName": "1.0.6",
+    "versionCode": 8,
+    "versionName": "1.0.7",
     "url": "https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk",
     "notes": [
-        "Scrolling through channels keeps the current video playing; press OK to preview a channel, OK again for fullscreen",
-        "The TV guide works the same way, and the playing channel continues in the guide's preview window",
-        "Prefer the old behaviour? Settings \u2192 Playback \u2192 Preview while scrolling"
+        "New Sports hub (side menu \u2192 Sports): live and upcoming football, cricket and Formula 1 from your channels",
+        "Matches are found in your TV guide and in \"event\" channels; the same match on several channels is shown once",
+        "Filter by sport, hide or show highlights & replays, OK to watch live or set a reminder for later"
     ]
 }

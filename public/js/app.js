@@ -11,6 +11,7 @@ import { autoCheck } from './updater.js';
 const VIEWS = {
   live: { label: 'Live TV', icon: 'live', load: () => import('./views/live.js') },
   guide: { label: 'TV Guide', icon: 'guide', load: () => import('./views/guide.js') },
+  sports: { label: 'Sports', icon: 'trophy', load: () => import('./views/sports.js') },
   movies: { label: 'Movies', icon: 'movie', load: () => import('./views/vod.js') },
   series: { label: 'Series', icon: 'series', load: () => import('./views/vod.js') },
   multiview: { label: 'Multi-view', icon: 'grid', load: () => import('./views/multiview.js') },
