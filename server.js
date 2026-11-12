@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Aurora TV – tiny zero-dependency server.
+ * Lumora TV – tiny zero-dependency server.
  *  - serves the web app from ./public
  *  - /api/fetch?url=   CORS proxy for playlists, EPG (auto-gunzip) and Xtream API calls
  *  - /api/stream?url=  streaming proxy for live/VOD media; rewrites HLS playlists so
@@ -195,5 +195,5 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
-  console.log(`\n  ✦ Aurora TV running at http://localhost:${PORT}\n`);
+  console.log(`\n  ✦ Lumora TV running at http://localhost:${PORT}\n`);
 });

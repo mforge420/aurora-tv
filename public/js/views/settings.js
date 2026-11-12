@@ -108,13 +108,13 @@ export default function settingsView(root, { go }) {
       h('p.muted', 'Export your playlists, favourites and settings to move them to another device.'),
       row('Export', 'Download a backup file (contains your provider credentials)', h('button.btn.ghost', { onclick: exportBackup, html: icon('upload') + '<span>Export</span>' })),
       row('Import', 'Restore from a backup file', h('label.btn.ghost', { html: icon('refresh') + '<span>Import</span>' }, h('input', { type: 'file', accept: '.json', hidden: true, onchange: (e) => importBackup(e.target.files[0]) }))),
-      row('Reset app', 'Remove all playlists and settings from this device', h('button.btn.danger', { onclick: async () => { if (await confirmDialog('Reset Aurora TV?', 'Everything stored on this device will be erased.', { ok: 'Erase', danger: true })) { localStorage.clear(); indexedDB.deleteDatabase('aurora-tv'); location.reload(); } }, html: icon('trash') + '<span>Reset</span>' })),
+      row('Reset app', 'Remove all playlists and settings from this device', h('button.btn.danger', { onclick: async () => { if (await confirmDialog('Reset Lumora TV?', 'Everything stored on this device will be erased.', { ok: 'Erase', danger: true })) { localStorage.clear(); indexedDB.deleteDatabase('aurora-tv'); location.reload(); } }, html: icon('trash') + '<span>Reset</span>' })),
     ],
     about: () => [
-      h('div.about', h('img', { src: '/icons/icon.svg', alt: '' }), h('h2', 'Aurora TV'), h('p.muted', 'A fast, remote-friendly IPTV player for M3U and Xtream Codes playlists with XMLTV guide, catch-up and multi-view.'),
+      h('div.about', h('img', { src: '/icons/icon.svg', alt: '' }), h('h2', 'Lumora TV'), h('p.muted', 'A fast, remote-friendly IPTV player for M3U and Xtream Codes playlists with XMLTV guide, catch-up and multi-view.'),
         h('div.kbd-help', h('h3', 'Shortcuts'),
           ...[['▲ ▼ / PgUp PgDn', 'Change channel (fullscreen)'], ['◀', 'Channel list (fullscreen)'], ['▶ / Menu', 'Player options'], ['0–9', 'Jump to channel number'], ['G', 'TV guide'], ['/', 'Search'], ['M', 'Mute'], ['F', 'Fullscreen window'], ['I', 'Info'], ['Esc / Back', 'Back']].map(([k, d]) => h('div', h('kbd', k), h('span', d)))),
-        h('p.muted.small', 'Aurora TV does not provide any content. Only use playlists you are entitled to.')),
+        h('p.muted.small', 'Lumora TV does not provide any content. Only use playlists you are entitled to.')),
     ],
   };
   const refocus = (f) => requestAnimationFrame(() => { if (!f?.isConnected) nav.focusFirst(content); });
@@ -134,7 +134,7 @@ export default function settingsView(root, { go }) {
     if (!f) return;
     try {
       const d = JSON.parse(await f.text());
-      if (d.app !== 'aurora-tv') throw new Error('Not an Aurora TV backup');
+      if (d.app !== 'aurora-tv') throw new Error('Not an Lumora TV backup');
       settings.replace(d.settings || {});
       store.set('favs', d.favs || []); store.set('recents', d.recents || []); store.set('resume', d.resume || {});
       store.set('sources', (d.sources || []).map((s) => ({ ...s, updated: 0, epgUpdated: 0 })));

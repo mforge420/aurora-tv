@@ -7,7 +7,7 @@ export default function welcome(root, { go }) {
   root.append(h('div.welcome',
     h('div.welcome-card',
       h('img.welcome-logo', { src: '/icons/icon.svg', alt: '' }),
-      h('h1', 'Welcome to ', h('span.grad', 'Aurora TV')),
+      h('h1', 'Welcome to ', h('span.grad', 'Lumora TV')),
       h('p.lead', 'A fast, beautiful home for your live TV, movies and series. Add your provider’s playlist to get started.'),
       h('div.row.center.gap',
         h('button.btn.primary.lg', { 'data-autofocus': true, onclick: add, html: `${icon('plus')}<span>Add playlist</span>` }),
@@ -17,7 +17,7 @@ export default function welcome(root, { go }) {
         feat('grid', 'Multi-view', 'Watch up to four channels at once'),
         feat('movie', 'Movies & series', 'Posters, details, resume and auto-play next'),
         feat('sparkle', 'Remote-first', 'Designed for TV remotes, keyboards, mouse and touch')),
-      h('p.muted.small', 'Aurora TV is a player only — it does not provide any channels or content.')),
+      h('p.muted.small', 'Lumora TV is a player only — it does not provide any channels or content.')),
   ));
   setTimeout(add, 400);
   return {};

@@ -113,7 +113,7 @@ class MainActivity : ComponentActivity() {
             textZoom = 100
             mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
             cacheMode = WebSettings.LOAD_DEFAULT
-            userAgentString = "$userAgentString AuroraTV/${packageManager.getPackageInfo(packageName, 0).versionName}"
+            userAgentString = "$userAgentString LumoraTV/${packageManager.getPackageInfo(packageName, 0).versionName}"
         }
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
         web.webViewClient = object : WebViewClient() {
@@ -138,7 +138,7 @@ class MainActivity : ComponentActivity() {
                 if (crashTimes.size > 3) {   // crashing in a loop: stop and tell the user
                     AlertDialog.Builder(this@MainActivity)
                         .setTitle("Display engine keeps crashing")
-                        .setMessage("Android System WebView on this device keeps crashing. Update “Android System WebView” from the store, then reopen Aurora TV.")
+                        .setMessage("Android System WebView on this device keeps crashing. Update “Android System WebView” from the store, then reopen Lumora TV.")
                         .setPositiveButton("Close") { _, _ -> finish() }
                         .setCancelable(false).show()
                     return true
@@ -299,7 +299,7 @@ class MainActivity : ComponentActivity() {
         if (major < 90) {
             AlertDialog.Builder(this)
                 .setTitle("Update Android System WebView")
-                .setMessage("Aurora TV needs a newer Android System WebView (installed: ${pkg.versionName}). Update it from the Play Store / App Store for the best experience.")
+                .setMessage("Lumora TV needs a newer Android System WebView (installed: ${pkg.versionName}). Update it from the Play Store / App Store for the best experience.")
                 .setPositiveButton("OK", null)
                 .show()
         }

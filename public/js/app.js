@@ -23,7 +23,7 @@ const rail = document.getElementById('rail');
 
 function buildRail() {
   rail.replaceChildren(
-    h('div.brand', { html: `<img src="/icons/icon.svg" alt=""><span>Aurora</span>` }),
+    h('div.brand', { html: `<img src="/icons/icon.svg" alt=""><span>Lumora</span>` }),
     h('div.rail-items', Object.entries(VIEWS).map(([k, v]) =>
       h('button.rail-btn', { dataset: { view: k }, onclick: () => go(k), html: `${icon(v.icon)}<span>${v.label}</span>` }))),
     h('div.rail-foot', h('div.rail-clock#clock'), h('div.epg-status#epgstatus')),
@@ -78,7 +78,7 @@ nav.backHandler = () => {
   if (!rail.contains(document.activeElement)) { rail.querySelector('.rail-btn.active')?.focus(); return; }
   if (currentName !== 'live' && lib.sources.length) { go('live'); return; }
   if (isNative && !document.querySelector('.modal-wrap')) {
-    confirmDialog('Exit Aurora TV?', null, { ok: 'Exit' }).then((yes) => yes && nativeApi.exit());
+    confirmDialog('Exit Lumora TV?', null, { ok: 'Exit' }).then((yes) => yes && nativeApi.exit());
   }
 };
 nav.fallback = (k) => {
