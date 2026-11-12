@@ -1,0 +1,11 @@
+{
+    "versionCode": 4,
+    "versionName": "1.0.3",
+    "url": "https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk",
+    "notes": [
+        "New: update Lumora TV from inside the app (Settings \u2192 About \u2192 Check for updates)",
+        "Playlists are now kept when you reopen the app",
+        "Side menu: Up/Down moves between menu items correctly",
+        "Smoother channel banner, more reliable TV guide, clearer stream errors"
+    ]
+}

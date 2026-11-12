@@ -50,6 +50,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var playerView: PlayerView
     private lateinit var player: NativePlayer
     private lateinit var server: LocalServer
+    private lateinit var updater: Updater
     private var fileCallback: ValueCallback<Array<Uri>>? = null
     private var rectAnim: ValueAnimator? = null
     private val crashTimes = mutableListOf<Long>()
@@ -65,6 +66,7 @@ class MainActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED)
         goImmersive()
         server = LocalServer(applicationContext)
+        updater = Updater(this) { data -> emitToWeb("update", data) }
 
         root = FrameLayout(this).apply { setBackgroundColor(Color.parseColor("#06070C")) }
 
@@ -261,6 +263,12 @@ class MainActivity : ComponentActivity() {
         }
 
         @JavascriptInterface fun exit() = runOnUiThread { player.stop(); finish() }
+
+        // ---- in-app updates
+        @JavascriptInterface fun appVersion(): String = updater.currentVersion().toString()
+        @JavascriptInterface fun canInstall(): Boolean = updater.canInstall()
+        @JavascriptInterface fun openInstallPermission() = runOnUiThread { updater.openInstallPermission() }
+        @JavascriptInterface fun installUpdate(url: String) = updater.install(url)
 
         /** Saves a text file (backup export) to Downloads; returns a human-readable location. */
         @JavascriptInterface fun saveFile(name: String, content: String): String = try {

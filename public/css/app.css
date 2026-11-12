@@ -651,3 +651,17 @@ html.native .rail-btn[data-view="multiview"] { display: flex; }
 html.native .glass { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(12, 14, 24, .9); }
 html.native .p-num, html.native .big-play, html.native .mv-label, html.native .toast { -webkit-backdrop-filter: none; backdrop-filter: none; }
 html.native .p-osd { background: linear-gradient(transparent 50%, rgba(0,0,0,.7)), linear-gradient(rgba(0,0,0,.45), transparent 20%); }
+
+/* in-app update dialog */
+.upd-head { display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; }
+.upd-head h2 { margin: 0; }
+.upd-icon { width: 3rem; height: 3rem; border-radius: .9rem; background: var(--grad); color: var(--accent-ink); display: grid; place-items: center; flex: none; }
+.upd-notes { margin: 0 0 1rem; padding-left: 1.2rem; color: var(--text-2); font-size: .9rem; display: flex; flex-direction: column; gap: .35rem; }
+.upd-bar { height: .45rem; margin: .4rem 0 .6rem; }
+.upd-status { font-size: .88rem; color: var(--text-2); min-height: 1.2rem; }
+.upd-status.warn { color: var(--warn); }
+.upd-status.error { color: #ff8b96; }
+[hidden] { display: none !important; }
+.modal.update { width: min(36rem, 94vw); }
+.modal.update .row.end { flex-wrap: wrap; }
+.modal.update .row.end .btn:first-child { margin-right: auto; }

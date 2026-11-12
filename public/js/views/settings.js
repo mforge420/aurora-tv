@@ -5,6 +5,7 @@ import { icon, toast, confirmDialog, choose, pinDialog, modal } from '../ui.js';
 import { addSourceDialog } from './addsource.js';
 import { nav } from '../nav.js';
 import { isNative, nativeApi } from '../native.js';
+import { currentVersion, manualCheck } from '../updater.js';
 
 const SECTIONS = [
   ['playlists', 'Playlists', 'list'], ['appearance', 'Appearance', 'sparkle'], ['player', 'Playback', 'play'],
@@ -111,6 +112,7 @@ export default function settingsView(root, { go }) {
       row('Reset app', 'Remove all playlists and settings from this device', h('button.btn.danger', { onclick: async () => { if (await confirmDialog('Reset Lumora TV?', 'Everything stored on this device will be erased.', { ok: 'Erase', danger: true })) { localStorage.clear(); indexedDB.deleteDatabase('aurora-tv'); location.reload(); } }, html: icon('trash') + '<span>Reset</span>' })),
     ],
     about: () => [
+      isNative && row('App version', `Lumora TV ${currentVersion().name}`, h('button.btn.primary', { onclick: manualCheck, html: icon('refresh') + '<span>Check for updates</span>' })),
       h('div.about', h('img', { src: '/icons/icon.svg', alt: '' }), h('h2', 'Lumora TV'), h('p.muted', 'A fast, remote-friendly IPTV player for M3U and Xtream Codes playlists with XMLTV guide, catch-up and multi-view.'),
         h('div.kbd-help', h('h3', 'Shortcuts'),
           ...[['▲ ▼ / PgUp PgDn', 'Change channel (fullscreen)'], ['◀', 'Channel list (fullscreen)'], ['▶ / Menu', 'Player options'], ['0–9', 'Jump to channel number'], ['G', 'TV guide'], ['/', 'Search'], ['M', 'Mute'], ['F', 'Fullscreen window'], ['I', 'Info'], ['Esc / Back', 'Back']].map(([k, d]) => h('div', h('kbd', k), h('span', d)))),

@@ -2,7 +2,7 @@
 
 A fast, good-looking IPTV player for **M3U** and **Xtream Codes** playlists with an **XMLTV TV guide**. It's built for TV remotes first, and also works with a keyboard, mouse or touch screen.
 
-**📥 Download the Android TV / Fire TV app (latest, v1.0.2):** [LumoraTV-1.0.0.apk](https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk)
+**📥 Download the Android TV / Fire TV app (latest, v1.0.3):** [LumoraTV-1.0.0.apk](https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk)
 (Fire TV *Downloader* code: **2139190**, or the URL `https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk`)
 
 > Lumora TV is only a player. It does not include any channels or content.
@@ -27,6 +27,14 @@ echo "sdk.dir=/path/to/android-sdk" > local.properties   # or set ANDROID_HOME
 ```
 
 Release signing: create `android/keystore.properties` with `storeFile`, `storePassword`, `keyAlias` and `keyPassword`. Without it, release builds are signed with the debug key, which is fine for sideloading.
+
+### Releasing an update
+
+Installed apps (v1.0.3+) check `android/version.json` on start and offer the update in-app (also *Settings → About → Check for updates*):
+
+1. Bump `versionCode` and `versionName` in `android/app/build.gradle.kts`, and write what's new in `android/release-notes.txt`.
+2. Run `./gradlew publishApk` in `android/`. It builds, copies the APK to `android/LumoraTV-1.0.0.apk` (the stable download URL / Downloader code), and rewrites `android/version.json`.
+3. Commit and push both files.
 
 ### Install on a TV
 

@@ -20,8 +20,8 @@ android {
         applicationId = "app.lumoratv.player"
         minSdk = 24
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.0.2"
+        versionCode = 4
+        versionName = "1.0.3"
     }
 
     signingConfigs {
@@ -80,4 +80,25 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.webkit:webkit:1.12.1")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+}
+
+// ./gradlew publishApk → builds, copies the APK to android/LumoraTV-1.0.0.apk (the
+// stable download URL / Downloader code) and writes android/version.json, which the
+// installed app checks for in-app updates. Commit + push both files to release.
+val publishApk by tasks.registering {
+    dependsOn("assembleDebug")
+    doLast {
+        val apk = layout.buildDirectory.file("outputs/apk/debug/app-debug.apk").get().asFile
+        apk.copyTo(rootProject.file("LumoraTV-1.0.0.apk"), overwrite = true)
+        val notes = rootProject.file("release-notes.txt").takeIf { it.exists() }
+            ?.readLines()?.map { it.trim().removePrefix("- ") }?.filter { it.isNotEmpty() } ?: emptyList()
+        val json = groovy.json.JsonOutput.toJson(mapOf(
+            "versionCode" to android.defaultConfig.versionCode,
+            "versionName" to android.defaultConfig.versionName,
+            "url" to "https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk",
+            "notes" to notes,
+        ))
+        rootProject.file("version.json").writeText(groovy.json.JsonOutput.prettyPrint(json) + "\n")
+        println("Published ${android.defaultConfig.versionName} (${android.defaultConfig.versionCode})")
+    }
 }

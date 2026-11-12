@@ -105,3 +105,5 @@ export class NativeEngine extends Emitter {
 }
 
 export const nativeApi = N;
+/** Subscribe to raw events from the Android app; returns an unsubscribe function. */
+export function onNative(fn) { listeners.add(fn); return () => listeners.delete(fn); }
