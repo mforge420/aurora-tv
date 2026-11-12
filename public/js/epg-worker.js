@@ -45,10 +45,35 @@ const inner = (block, tag) => {
   return decode(v.trim());
 };
 
-self.onmessage = async (ev) => {
-  const { fetchUrl, from, to, uaHeader } = ev.data;
+// Same normalisation as util.js normName (kept in sync) for name-based channel matching
+function normName(s) {
+  return String(s || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/\[[^\]]*\]|\([^)]*\)/g, ' ')
+    .replace(/\b(fhd|uhd|hd|sd|4k|hevc|h265|backup|raw|\d{3,4}p)\b/g, ' ')
+    .replace(/^[a-z]{2,3}\s*[|:\-]\s*/, '')
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+// In the Android app the page streams the file to us in chunks (works on any WebView version)
+let feed = null;
+const pending = [];
+self.onmessage = (ev) => {
+  const d = ev.data;
+  if (d.type === 'chunk') { feed ? feed.enqueue(new Uint8Array(d.buf)) : pending.push(new Uint8Array(d.buf)); return; }
+  if (d.type === 'end') { feed ? feed.close() : pending.push(null); return; }
+  if (d.type === 'abort') { feed?.error(new Error(d.message)); return; }
+  run(d);
+};
+
+async function run(data) {
+  const { fetchUrl, from, to, uaHeader } = data;
+  const wantIds = data.wanted ? new Set(data.wanted.ids) : null;
+  const wantNames = data.wanted ? new Set(data.wanted.names) : null;
   try {
-    let stream = ev.data.stream, total = ev.data.total || 0;
+    let stream = null, total = data.total || 0;
+    if (data.streamed) {
+      stream = new ReadableStream({ start(c) { feed = c; for (const p of pending.splice(0)) p ? c.enqueue(p) : c.close(); } });
+    }
     if (!stream) {
       const res = await fetch(fetchUrl, { headers: uaHeader ? { 'x-aurora-ua': uaHeader } : {} });
       if (!res.ok) {
@@ -71,6 +96,17 @@ self.onmessage = async (ev) => {
     const reader = stream.pipeThrough(new TextDecoderStream()).getReader();
 
     const channels = {}, progs = {};
+    const wantCache = new Map();
+    const wanted = (ch) => {
+      if (!wantIds) return true;
+      let v = wantCache.get(ch);
+      if (v === undefined) {
+        v = wantIds.has(ch.toLowerCase()) || wantNames.has(normName(channels[ch]?.n || '')) ||
+          wantNames.has(normName(ch.replace(/\.[a-z]{2,3}$/i, '')));
+        wantCache.set(ch, v);
+      }
+      return v;
+    };
     let buf = '', count = 0, lastPost = 0;
     for (;;) {
       const { done, value } = await reader.read();
@@ -87,15 +123,15 @@ self.onmessage = async (ev) => {
           const tagEnd = block.indexOf('>');
           const tag = block.slice(0, tagEnd);
           const start = parseTime(attr(tag, 'start')), stop = parseTime(attr(tag, 'stop'));
-          if (stop > from && start < to) {
-            const ch = decode(attr(tag, 'channel'));
+          const ch = decode(attr(tag, 'channel'));
+          if (stop > from && start < to && wanted(ch)) {
             const arr = progs[ch] || (progs[ch] = []);
             let ep = inner(block, 'episode-num');
             if (ep && /\d+\s*\.\s*\d+/.test(ep)) {
               const p = ep.split('.'); const s = parseInt(p[0], 10), e = parseInt(p[1], 10);
               ep = (isNaN(s) ? '' : 'S' + (s + 1)) + (isNaN(e) ? '' : 'E' + (e + 1));
             }
-            arr.push(start, stop || start + 3600e3, inner(block, 'title'), inner(block, 'desc').slice(0, 600), inner(block, 'category'), ep || inner(block, 'sub-title'));
+            arr.push(start, stop || start + 3600e3, inner(block, 'title'), inner(block, 'desc').slice(0, 320), inner(block, 'category'), ep || inner(block, 'sub-title'));
             count++;
           }
           idx = end + 12;
@@ -130,8 +166,9 @@ self.onmessage = async (ev) => {
       for (const r of rows) { if (r[0] === lastStart) continue; lastStart = r[0]; flat.push(...r); }
       progs[k] = flat;
     }
+    for (const k in channels) if (!progs[k]) delete channels[k];
     self.postMessage({ type: 'done', channels, progs, count });
   } catch (e) {
     self.postMessage({ type: 'error', message: e.message || String(e) });
   }
-};
+}

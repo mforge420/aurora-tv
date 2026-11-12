@@ -266,7 +266,8 @@ body.player-full .aurora-bg { display: none; }
 .big-play { width: 6rem; height: 6rem; border-radius: 50%; background: rgba(255,255,255,.14); backdrop-filter: blur(12px); display: grid; place-items: center; }
 .big-play .i { width: 2.6rem; height: 2.6rem; margin-left: .3rem; }
 .glass { background: rgba(14, 16, 28, .62); backdrop-filter: blur(24px) saturate(1.4); -webkit-backdrop-filter: blur(24px) saturate(1.4); border: 1px solid rgba(255,255,255,.08); }
-.osd-bottom { border-radius: 1.6rem; padding: 1.6rem 1.8rem; display: grid; grid-template-columns: auto 1fr; gap: 1.2rem 2rem; animation: rise .35s var(--ease); }
+.osd-bottom { border-radius: 1.6rem; padding: 1.6rem 1.8rem; display: grid; grid-template-columns: auto 1fr; gap: 1.2rem 2rem; transform: translateY(1.2rem); transition: transform .35s var(--ease); }
+#player.osd-on .osd-bottom { transform: none; }
 @keyframes rise { from { transform: translateY(1.2rem); opacity: 0; } }
 .osd-ch { display: flex; gap: 1.2rem; align-items: center; padding-right: 2rem; border-right: 1px solid var(--line-2); }
 .osd-num { font-size: 1.05rem; font-weight: 700; color: var(--accent); display: flex; align-items: center; gap: .4rem; font-variant-numeric: tabular-nums; }
@@ -645,3 +646,8 @@ html.native body.has-video .preview-ph { visibility: hidden; }
 html.native body.has-video .aurora-bg { display: none; }
 html.native body.player-full #app { visibility: hidden; }
 html.native .rail-btn[data-view="multiview"] { display: flex; }
+
+/* backdrop-filter over the native video hole flickers on many TV GPUs: use solid glass instead */
+html.native .glass { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(12, 14, 24, .9); }
+html.native .p-num, html.native .big-play, html.native .mv-label, html.native .toast { -webkit-backdrop-filter: none; backdrop-filter: none; }
+html.native .p-osd { background: linear-gradient(transparent 50%, rgba(0,0,0,.7)), linear-gradient(rgba(0,0,0,.45), transparent 20%); }

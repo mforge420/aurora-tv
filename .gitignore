@@ -5,3 +5,4 @@ android/app/build/
 android/local.properties
 android/keystore.properties
 *.jks
+!android/app/debug.keystore

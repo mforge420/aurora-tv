@@ -75,6 +75,7 @@ export class NativeEngine extends Emitter {
       } else if (type === 'error') {
         this.emit('state', 'error'); this.emit('fatal', new Error(data || 'This stream could not be played'));
       } else if (type === 'tracks') this.emit('tracks');
+      else if (type === 'warning') import('./ui.js').then(({ toast }) => toast(data, { type: 'error', icon: 'tv', ms: 7000 }));
     });
   }
   load(url, opts = {}) {

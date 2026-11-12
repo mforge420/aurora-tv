@@ -20,11 +20,16 @@ android {
         applicationId = "app.lumoratv.player"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.0.1"
     }
 
     signingConfigs {
+        // Fixed debug key kept in the repo so sideloaded updates always install over the previous version
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"; keyAlias = "androiddebugkey"; keyPassword = "android"
+        }
         if (keystoreProps.isNotEmpty()) create("release") {
             storeFile = rootProject.file(keystoreProps.getProperty("storeFile"))
             storePassword = keystoreProps.getProperty("storePassword")
@@ -69,6 +74,8 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer-hls:$media3")
     implementation("androidx.media3:media3-datasource-okhttp:$media3")
     implementation("androidx.media3:media3-ui:$media3")
+    // Software audio decoders (MP2, AC3, E-AC3, DTS, TrueHD…) for boxes that lack them in hardware
+    implementation("org.jellyfin.media3:media3-ffmpeg-decoder:1.5.0+1")
     implementation("androidx.activity:activity-ktx:1.9.3")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.webkit:webkit:1.12.1")

@@ -211,13 +211,15 @@ class Library extends Emitter {
         const eh = settings.get('epgAutoRefreshHours');
         if (!force && s.epgUpdated && Date.now() - s.epgUpdated < eh * 3600e3) continue;
         try {
-          const data = await this.#parseEpg(s.epgUrl, (p) => { onProgress?.(p, s); this.emit('epg-status', { loading: true, ...p, source: s.name }); });
+          const data = await this.#parseEpg(s.epgUrl, (p) => { onProgress?.(p, s); this.emit('epg-status', { loading: true, ...p, source: s.name }); }, s);
+          if (!Object.keys(data.progs).length) throw new Error('The guide downloaded but had no programmes for your channels');
           await idb.set('epg:' + s.id, data);
           s.epgUpdated = Date.now(); s.epgCount = Object.keys(data.progs).length;
           s.epgError = '';
         } catch (e) {
           s.epgError = e.message;
           console.warn('EPG failed', e);
+          import('./ui.js').then(({ toast }) => toast(`TV guide failed (${s.name}): ${e.message}`, { type: 'error', icon: 'guide', ms: 9000 }));
         }
         this.saveSources();
       }
@@ -228,16 +230,19 @@ class Library extends Emitter {
     }
   }
 
-  async #parseEpg(url, onProgress) {
-    let stream = null, total = 0;
-    if (isNative) {
-      const r = await fetchRemote(url);
-      stream = r.body; total = Number(r.headers.get('content-length')) || 0;
-    }
-    return new Promise((resolve, reject) => {
-      const w = new Worker(new URL('./epg-worker.js', import.meta.url));
-      const now = Date.now();
-      const fetchUrl = hasProxy() && settings.get('proxyMode') !== 'never' ? '/api/fetch?url=' + encodeURIComponent(url) : url;
+  async #parseEpg(url, onProgress, src) {
+    // Only keep programmes for channels in this playlist, and only the window we
+    // actually show: big provider guides otherwise exhaust memory on TV boxes.
+    const chans = src?._cat?.live || [];
+    const wanted = chans.length ? {
+      ids: [...new Set(chans.map((c) => (c.epgId || '').toLowerCase()).filter(Boolean))],
+      names: [...new Set(chans.map((c) => normName(c.tvgName || c.name)).filter(Boolean))],
+    } : null;
+    const catchupDays = Math.min(7, Math.max(0, ...chans.map((c) => c.catchup?.days || 0)));
+    const now = Date.now();
+    const from = now - Math.max(0.25, catchupDays) * 864e5, to = now + 3.5 * 864e5;
+    const w = new Worker(new URL('./epg-worker.js', import.meta.url));
+    const done = new Promise((resolve, reject) => {
       w.onmessage = (ev) => {
         const d = ev.data;
         if (d.type === 'progress') onProgress?.(d);
@@ -245,9 +250,28 @@ class Library extends Emitter {
         else if (d.type === 'error') { w.terminate(); reject(new Error(d.message)); }
       };
       w.onerror = (e) => { w.terminate(); reject(new Error(e.message || 'EPG worker error')); };
-      const msg = { fetchUrl, stream, total, from: now - 7 * 864e5, to: now + 8 * 864e5, uaHeader: settings.get('userAgent') };
-      w.postMessage(msg, stream ? [stream] : []);
     });
+    const base = { from, to, wanted, uaHeader: settings.get('userAgent') };
+    if (isNative) {
+      // Page fetches (through the app's native proxy) and feeds the worker chunk by chunk
+      w.postMessage({ ...base, streamed: true });
+      let r;
+      try { r = await fetchRemote(url); } catch (e) { w.terminate(); throw e; }
+      const reader = r.body.getReader();
+      try {
+        for (;;) {
+          const { done: end, value } = await reader.read();
+          if (end) break;
+          const buf = value.buffer.byteLength === value.byteLength ? value.buffer : value.slice().buffer;
+          w.postMessage({ type: 'chunk', buf }, [buf]);
+        }
+        w.postMessage({ type: 'end' });
+      } catch (e) { w.postMessage({ type: 'abort', message: e.message }); }
+    } else {
+      const fetchUrl = hasProxy() && settings.get('proxyMode') !== 'never' ? '/api/fetch?url=' + encodeURIComponent(url) : url;
+      w.postMessage({ ...base, fetchUrl });
+    }
+    return done;
   }
 
   buildEpgIndex() {

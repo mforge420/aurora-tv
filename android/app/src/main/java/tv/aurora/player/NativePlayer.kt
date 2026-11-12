@@ -16,6 +16,7 @@ import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util
+import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
@@ -50,6 +51,15 @@ class NativePlayer(
     private var started = false
     private var retries = 0
     private var lastKind = ""
+    private var codecWarned = false
+
+    /** A stream that connects but never delivers playable data would otherwise spin forever. */
+    private val startWatchdog = Runnable {
+        val r = req ?: return@Runnable
+        if (started) return@Runnable
+        if (kindIdx < kinds.size - 1) { kindIdx++; start(r.optDouble("startAt", 0.0)) }
+        else { player?.stop(); emit("error", "No video received from the provider within 20 seconds") }
+    }
 
     @Volatile var tracksJson: String = "{\"audio\":[],\"text\":[],\"video\":[]}"
     @Volatile var statsJson: String = "{}"
@@ -72,7 +82,7 @@ class NativePlayer(
         player?.let { return it }
         val renderers = DefaultRenderersFactory(context)
             .setEnableDecoderFallback(true)
-            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
         val load = DefaultLoadControl.Builder()
             .setBufferDurationsMs(15_000, 50_000, 1_500, 3_000)
             .build()
@@ -113,6 +123,9 @@ class NativePlayer(
         val p = ensure()
         val kind = kinds[kindIdx]
         lastKind = kind
+        codecWarned = false
+        main.removeCallbacks(startWatchdog)
+        main.postDelayed(startWatchdog, 20_000)
         p.setMediaSource(source(r, kind))
         if (startAt > 0) p.seekTo((startAt * 1000).toLong())
         p.prepare()
@@ -124,7 +137,7 @@ class NativePlayer(
         val ua = r.optString("ua").ifBlank { LocalServer.DEFAULT_UA }
         val headers = mutableMapOf<String, String>()
         r.optString("ref").takeIf { it.isNotBlank() }?.let { headers["Referer"] = it }
-        val ds = OkHttpDataSource.Factory(LocalServer.http).setUserAgent(ua).setDefaultRequestProperties(headers)
+        val ds = OkHttpDataSource.Factory(LocalServer.media).setUserAgent(ua).setDefaultRequestProperties(headers)
         val url = r.getString("url")
         return if (kind == "hls") {
             HlsMediaSource.Factory(ds).setAllowChunklessPreparation(true)
@@ -139,6 +152,7 @@ class NativePlayer(
 
     fun stop() {
         req = null
+        main.removeCallbacks(startWatchdog)
         main.removeCallbacks(ticker)
         player?.run { stop(); clearMediaItems() }
         view.keepScreenOn = false
@@ -181,7 +195,7 @@ class NativePlayer(
             when (state) {
                 Player.STATE_BUFFERING -> emit("state", if (started) "buffering" else "loading")
                 Player.STATE_READY -> {
-                    if (!started) { started = true; retries = 0; emit("started", lastKind) }
+                    if (!started) { started = true; retries = 0; main.removeCallbacks(startWatchdog); emit("started", lastKind) }
                     emit("state", if (p.playWhenReady) "playing" else "paused")
                 }
                 Player.STATE_ENDED -> emit("state", "ended")
@@ -217,10 +231,41 @@ class NativePlayer(
                 main.postDelayed({ if (req === r) start(pos) }, 1500)
                 return
             }
-            emit("error", error.errorCodeName + (error.message?.let { ": $it" } ?: ""))
+            main.removeCallbacks(startWatchdog)
+            emit("error", describe(error))
         }
-        override fun onTracksChanged(tracks: Tracks) { updateTracks(tracks); emit("tracks", "") }
+        override fun onTracksChanged(tracks: Tracks) {
+            updateTracks(tracks); emit("tracks", "")
+            if (codecWarned) return
+            for (g in tracks.groups) {
+                if ((g.type == C.TRACK_TYPE_VIDEO || g.type == C.TRACK_TYPE_AUDIO) && g.length > 0 &&
+                    (0 until g.length).none { g.isTrackSupported(it) }) {
+                    val f = g.getTrackFormat(0)
+                    val what = if (g.type == C.TRACK_TYPE_VIDEO) "video" else "audio"
+                    codecWarned = true
+                    emit("warning", "This device can't play this channel's $what format (${f.sampleMimeType ?: f.codecs ?: "unknown"})")
+                    break
+                }
+            }
+        }
         override fun onVideoSizeChanged(videoSize: VideoSize) { updateStats() }
+    }
+
+    private fun describe(e: PlaybackException): String {
+        val http = generateSequence(e as Throwable) { it.cause }.filterIsInstance<HttpDataSource.InvalidResponseCodeException>().firstOrNull()
+        return when {
+            http != null && (http.responseCode == 401 || http.responseCode == 403) ->
+                "Provider refused the stream (HTTP ${http.responseCode}). Too many devices connected, or the subscription doesn't include this channel."
+            http != null && http.responseCode == 404 -> "Channel not found on the provider (HTTP 404)"
+            http != null -> "Provider error (HTTP ${http.responseCode})"
+            e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED -> "Can't connect to the provider's server"
+            e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> "The provider's server timed out"
+            e.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED ||
+                e.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED -> "Unsupported or broken stream format"
+            e.errorCode == PlaybackException.ERROR_CODE_DECODER_INIT_FAILED ||
+                e.errorCode == PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED -> "This device can't decode this channel's video format"
+            else -> e.errorCodeName.removePrefix("ERROR_CODE_").replace('_', ' ').lowercase().replaceFirstChar { it.uppercase() }
+        }
     }
 
     private fun label(f: Format, i: Int, type: Int): String {

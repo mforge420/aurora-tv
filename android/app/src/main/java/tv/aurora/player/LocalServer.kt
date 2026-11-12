@@ -28,11 +28,14 @@ class LocalServer(private val context: Context) {
 
         val http: OkHttpClient = OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(45, TimeUnit.SECONDS)
+            .readTimeout(150, TimeUnit.SECONDS) // providers' xmltv.php can take minutes to start sending
             .followRedirects(true)
             .followSslRedirects(true)
             .retryOnConnectionFailure(true)
             .build()
+
+        /** Same connection pool, but a short read timeout so stalled streams fail fast and reconnect. */
+        val media: OkHttpClient = http.newBuilder().readTimeout(20, TimeUnit.SECONDS).build()
 
         private val MIME = mapOf(
             "html" to "text/html", "js" to "text/javascript", "mjs" to "text/javascript",

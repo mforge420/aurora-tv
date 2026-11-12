@@ -136,7 +136,7 @@ class Player {
     document.body.classList.toggle('has-video', m !== 'hidden');
     this.layer.inert = m === 'hidden';
     document.getElementById('app').inert = m === 'full';
-    if (m === 'hidden') { this.osd.innerHTML = ''; this.status.innerHTML = ''; }
+    if (m === 'hidden') { this.osd.innerHTML = ''; this.status.innerHTML = ''; this.osdKey = null; }
     this.#reposition();
   }
   #reposition() {
@@ -153,6 +153,7 @@ class Player {
   reposition() { this.#reposition(); }
 
   #state(s, err) {
+    if (s === this.state && s !== 'error') return;
     this.state = s;
     this.layer.dataset.state = s;
     if (s === 'loading' || s === 'buffering' || s === 'reconnecting') {
@@ -174,16 +175,23 @@ class Player {
   #hideOsd() { this.osdVisible = false; this.layer.classList.remove('osd-on'); }
   #toggleOsd() { this.osdVisible ? this.#hideOsd() : this.#showOsd(); }
 
+  /**
+   * The OSD is built once per channel/programme and afterwards only its changing
+   * bits (clock, progress, times) are patched — rebuilding it on every player
+   * event restarted animations and reloaded the logo, which made it flicker.
+   */
   #renderOsd() {
     if (this.mode !== 'full' || !this.item) return;
     const it = this.item;
     const clock = fmtClock(Date.now(), { h12: !settings.get('clock24') });
     if (this.kind === 'live') {
       const [now, next] = lib.nowNext(it);
-      const pct = now ? clamp((Date.now() - now.start) / (now.stop - now.start), 0, 1) * 100 : 0;
       const fav = lib.isFav(it.id);
-      this.osd.innerHTML = `
-        <div class="osd-top"><div class="osd-clock">${clock}</div></div>
+      const key = `L|${it.id}|${now?.start}|${next?.start}|${fav}`;
+      if (key !== this.osdKey) {
+        this.osdKey = key;
+        this.osd.innerHTML = `
+        <div class="osd-top"><div class="osd-clock"></div></div>
         <div class="osd-bottom glass">
           <div class="osd-ch">
             <div class="osd-logo"></div>
@@ -195,7 +203,7 @@ class Player {
           </div>
           <div class="osd-prog">
             ${now ? `<div class="osd-now"><span class="live-pill">LIVE</span><b>${esc(now.title)}</b>${now.ep ? `<span class="ep">${esc(now.ep)}</span>` : ''}</div>
-              <div class="osd-times"><span>${fmtClock(now.start)}</span><div class="bar"><i style="width:${pct}%"></i></div><span>${fmtClock(now.stop)}</span></div>
+              <div class="osd-times"><span>${fmtClock(now.start)}</span><div class="bar"><i></i></div><span>${fmtClock(now.stop)}</span></div>
               ${now.desc ? `<p class="osd-desc">${esc(now.desc)}</p>` : ''}` : `<div class="osd-now"><span class="live-pill">LIVE</span><b>${esc(it.name)}</b></div><div class="muted">No programme information</div>`}
             ${next ? `<div class="osd-next"><span>Next</span> ${fmtClock(next.start)} · ${esc(next.title)}</div>` : ''}
           </div>
@@ -203,24 +211,51 @@ class Player {
             <span><kbd>▲▼</kbd> Zap</span><span><kbd>◀</kbd> Channels</span><span><kbd>▶</kbd> Options</span><span><kbd>G</kbd> Guide</span>
           </div>
         </div>`;
-      this.osd.querySelector('.osd-logo').append(logoEl(it.logo, it.name, 'logo xl'));
+        this.osd.querySelector('.osd-logo').append(this.#logo(it));
+      }
+      const pct = now ? clamp((Date.now() - now.start) / (now.stop - now.start), 0, 1) * 100 : 0;
+      const bar = this.osd.querySelector('.osd-times .bar i');
+      if (bar) bar.style.width = pct + '%';
     } else {
       const v = this.video, dur = this.kind === 'catchup' ? (this.prog.stop - this.prog.start) / 1000 : v.duration;
-      const pos = this.seekPreview ?? v.currentTime;
-      const pct = dur ? clamp(pos / dur, 0, 1) * 100 : 0;
-      const title = this.kind === 'catchup' ? this.prog.title : it.name;
-      const sub = this.kind === 'catchup' ? `${esc(it.name)} · ${fmtClock(this.prog.start)} – ${fmtClock(this.prog.stop)}` : esc(this.vodSub || it.group || '');
-      this.osd.innerHTML = `
-        <div class="osd-top"><div class="osd-title-top">${this.kind === 'catchup' ? '<span class="cu-pill">CATCH-UP</span>' : ''}</div><div class="osd-clock">${clock}</div></div>
-        <div class="osd-center">${v.paused && this.state !== 'loading' ? `<div class="big-play">${icon('play')}</div>` : ''}</div>
+      const key = `V|${it.id}|${this.kind}|${this.prog?.start}`;
+      if (key !== this.osdKey) {
+        this.osdKey = key;
+        const title = this.kind === 'catchup' ? this.prog.title : it.name;
+        const sub = this.kind === 'catchup' ? `${esc(it.name)} · ${fmtClock(this.prog.start)} – ${fmtClock(this.prog.stop)}` : esc(this.vodSub || it.group || '');
+        this.osd.innerHTML = `
+        <div class="osd-top"><div class="osd-title-top">${this.kind === 'catchup' ? '<span class="cu-pill">CATCH-UP</span>' : ''}</div><div class="osd-clock"></div></div>
+        <div class="osd-center"><div class="big-play">${icon('play')}</div></div>
         <div class="osd-bottom glass vod">
           <div class="osd-vodtitle"><b>${esc(title)}</b><span class="muted">${sub}</span></div>
-          <div class="osd-seek"><span>${fmtDuration(pos)}</span><div class="bar seek"><i style="width:${pct}%"></i><em style="left:${pct}%"></em></div><span>${dur ? '-' + fmtDuration(dur - pos) : '--:--'}</span></div>
+          <div class="osd-seek"><span class="t-pos"></span><div class="bar seek"><i></i><em></em></div><span class="t-left"></span></div>
           <div class="osd-hints"><span><kbd>OK</kbd> Play/Pause</span><span><kbd>◀▶</kbd> Seek</span><span><kbd>▼</kbd> Options</span>${this.vodNext ? '<span><kbd>⏭</kbd> Next episode</span>' : ''}</div>
         </div>`;
-      const bar = this.osd.querySelector('.bar.seek');
-      bar.onclick = (e) => { const r = bar.getBoundingClientRect(); if (dur) v.currentTime = (e.clientX - r.left) / r.width * dur; };
+        const bar = this.osd.querySelector('.bar.seek');
+        bar.onclick = (e) => { const r = bar.getBoundingClientRect(); const d = this.kind === 'catchup' ? (this.prog.stop - this.prog.start) / 1000 : this.video.duration; if (d) this.video.currentTime = (e.clientX - r.left) / r.width * d; };
+      }
+      const pos = this.seekPreview ?? v.currentTime;
+      const pct = dur ? clamp(pos / dur, 0, 1) * 100 : 0;
+      this.osd.querySelector('.bar.seek i').style.width = pct + '%';
+      this.osd.querySelector('.bar.seek em').style.left = pct + '%';
+      this.osd.querySelector('.t-pos').textContent = fmtDuration(pos);
+      this.osd.querySelector('.t-left').textContent = dur && isFinite(dur) ? '-' + fmtDuration(dur - pos) : '--:--';
+      this.osd.querySelector('.big-play').style.visibility = v.paused && this.state !== 'loading' ? 'visible' : 'hidden';
     }
+    const c = this.osd.querySelector('.osd-clock');
+    if (c && c.textContent !== clock) c.textContent = clock;
+  }
+
+  /** One logo element per channel, reused so the image never reloads while zapping. */
+  #logoCache = new Map();
+  #logo(it) {
+    let el = this.#logoCache.get(it.id);
+    if (!el) {
+      el = logoEl(it.logo, it.name, 'logo xl');
+      this.#logoCache.set(it.id, el);
+      if (this.#logoCache.size > 60) this.#logoCache.delete(this.#logoCache.keys().next().value);
+    }
+    return el;
   }
 
   #renderStats() {
