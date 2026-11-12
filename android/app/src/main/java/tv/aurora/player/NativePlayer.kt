@@ -42,6 +42,8 @@ class NativePlayer(
     private val context: Context,
     private val view: PlayerView,
     private val emit: (type: String, data: String) -> Unit,
+    /** Multi-view screen: small buffers, resolution capped, no position ticks */
+    private val lite: Boolean = false,
 ) {
     private val main = Handler(Looper.getMainLooper())
     private var player: ExoPlayer? = null
@@ -83,13 +85,13 @@ class NativePlayer(
         val renderers = DefaultRenderersFactory(context)
             .setEnableDecoderFallback(true)
             .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
-        val load = DefaultLoadControl.Builder()
-            .setBufferDurationsMs(15_000, 50_000, 1_500, 3_000)
-            .build()
+        val load = if (lite) DefaultLoadControl.Builder().setBufferDurationsMs(4_000, 15_000, 1_000, 2_000).build()
+            else DefaultLoadControl.Builder().setBufferDurationsMs(15_000, 50_000, 1_500, 3_000).build()
         val p = ExoPlayer.Builder(context, renderers).setLoadControl(load).build()
         p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
             .setPreferredAudioLanguage(Locale.getDefault().language)
             .setPreferredTextLanguage(Locale.getDefault().language)
+            .apply { if (lite) setMaxVideoSize(1280, 720).setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true) }
             .build()
         p.addListener(listener)
         view.player = p
@@ -130,7 +132,7 @@ class NativePlayer(
         if (startAt > 0) p.seekTo((startAt * 1000).toLong())
         p.prepare()
         p.playWhenReady = true
-        main.removeCallbacks(ticker); main.post(ticker)
+        main.removeCallbacks(ticker); if (!lite) main.post(ticker)
     }
 
     private fun source(r: JSONObject, kind: String): MediaSource {

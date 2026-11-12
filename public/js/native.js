@@ -111,3 +111,28 @@ export class NativeEngine extends Emitter {
 export const nativeApi = N;
 /** Subscribe to raw events from the Android app; returns an unsubscribe function. */
 export function onNative(fn) { listeners.add(fn); return () => listeners.delete(fn); }
+
+/** One multi-view screen played by its own native (hardware) player */
+export class NativeTileEngine extends Emitter {
+  constructor(i) {
+    super();
+    this.i = i;
+    listeners.add((type, data) => {
+      if (type !== 'mv') return;
+      let d; try { d = JSON.parse(data); } catch { return; }
+      if (d.i !== this.i || !this.active) return;
+      if (d.type === 'state') this.emit('state', d.data === 'idle' ? 'idle' : d.data);
+      else if (d.type === 'started') this.emit('state', 'playing');
+      else if (d.type === 'error') this.emit('state', 'error');
+    });
+  }
+  load(url, opts = {}) {
+    this.active = true;
+    this.emit('state', 'loading');
+    N.mvPlay(this.i, JSON.stringify({ url, live: true, ua: opts.ua || settings.get('userAgent') || '', ref: opts.ref || '' }));
+  }
+  setRect(r) { N.mvRect(this.i, r ? r.left : 0, r ? r.top : 0, r ? r.width : 0, r ? r.height : 0, window.innerWidth); }
+  setVolume(v) { N.mvVolume(this.i, v); }
+  stop() { this.active = false; N.mvStop(this.i); }
+  destroy() { this.stop(); }
+}

@@ -852,3 +852,13 @@ html.native #player .p-osd { background: linear-gradient(transparent 35%, rgba(4
 .osd-head .osd-name { max-width: none; flex: 0 1 auto; }
 #player .p-osd, html.native #player .p-osd { background: linear-gradient(transparent 18%, rgba(4,6,14,.6) 42%, rgba(4,6,14,.96) 78%), linear-gradient(rgba(0,0,0,.55), transparent 20%); }
 .osd-crumb, .osd-nowline, .osd-next, .osd-live .osd-desc { text-shadow: 0 1px 8px rgba(0,0,0,.7); }
+
+/* multi-view: picker with categories, native screens */
+.picker.wide { width: min(66rem, 96vw); height: min(46rem, 90vh); }
+.pick-cols { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(13rem, 19rem) 1fr; gap: .8rem; }
+.pick-cols .vlist { height: 100%; }
+.pick-groups { border-right: 1px solid var(--line); padding-right: .4rem; }
+html.native .mv-tile.filled { background: transparent; }
+html.native .mv-tile video { display: none; }
+html.native .mv-tile.filled .mv-state:empty { display: none; }
+@media (max-width: 800px) { .pick-cols { grid-template-columns: 1fr; } .pick-groups { display: none; } }

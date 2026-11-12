@@ -49,6 +49,23 @@ class MainActivity : ComponentActivity() {
     private lateinit var web: WebView
     private lateinit var playerView: PlayerView
     private lateinit var player: NativePlayer
+
+    /** Multi-view: one hardware player + surface per screen, under the WebView like the main one */
+    private class Tile(val view: PlayerView, val player: NativePlayer)
+    private val tiles = arrayOfNulls<Tile>(4)
+    private fun tile(i: Int): Tile = tiles[i] ?: run {
+        val v = PlayerView(this).apply {
+            useController = false; setShutterBackgroundColor(Color.BLACK); setBackgroundColor(Color.BLACK)
+            isFocusable = false; isFocusableInTouchMode = false; visibility = View.GONE
+        }
+        root.addView(v, 1, FrameLayout.LayoutParams(1, 1)) // above the main surface, below the WebView
+        val p = NativePlayer(this, v, { type, data -> emitToWeb("mv", JSONObject().put("i", i).put("type", type).put("data", data).toString()) }, lite = true)
+        Tile(v, p).also { tiles[i] = it }
+    }
+    private fun releaseTiles() {
+        for (i in tiles.indices) tiles[i]?.let { it.player.release(); root.removeView(it.view) }
+        tiles.fill(null)
+    }
     private lateinit var server: LocalServer
     private lateinit var updater: Updater
     private val remote by lazy {
@@ -94,7 +111,7 @@ class MainActivity : ComponentActivity() {
         createWebView()
         setContentView(root)
 
-        player = NativePlayer(this, playerView) { type, data -> emitToWeb(type, data) }
+        player = NativePlayer(this, playerView, { type, data -> emitToWeb(type, data) })
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() = sendKey("Escape")
@@ -292,6 +309,21 @@ class MainActivity : ComponentActivity() {
         }
 
         @JavascriptInterface fun exit() = runOnUiThread { player.stop(); finish() }
+
+        // ---- multi-view screens
+        @JavascriptInterface fun mvPlay(i: Int, json: String) = runOnUiThread { if (i in 0..3) tile(i).player.play(json) }
+        @JavascriptInterface fun mvStop(i: Int) = runOnUiThread { tiles.getOrNull(i)?.let { it.player.stop(); it.view.visibility = View.GONE } }
+        @JavascriptInterface fun mvVolume(i: Int, v: Double) = runOnUiThread { tiles.getOrNull(i)?.player?.setVolume(v.toFloat()) }
+        @JavascriptInterface fun mvRect(i: Int, x: Double, y: Double, w: Double, h: Double, vw: Double) = runOnUiThread {
+            val t = tiles.getOrNull(i) ?: return@runOnUiThread
+            val s = if (vw > 0) web.width / vw else resources.displayMetrics.density.toDouble()
+            val lp = t.view.layoutParams as FrameLayout.LayoutParams
+            lp.leftMargin = (x * s).toInt(); lp.topMargin = (y * s).toInt()
+            lp.width = maxOf(1, (w * s).toInt()); lp.height = maxOf(1, (h * s).toInt())
+            t.view.layoutParams = lp
+            t.view.visibility = if (w > 0 && h > 0) View.VISIBLE else View.GONE
+        }
+        @JavascriptInterface fun mvReleaseAll() = runOnUiThread { releaseTiles() }
         /** The page tells us when a text field has focus (OK must then open the keyboard). */
         @JavascriptInterface fun setTextFocus(on: Boolean) { textFocus = on }
 
@@ -337,10 +369,10 @@ class MainActivity : ComponentActivity() {
         }
     }
     override fun onWindowFocusChanged(hasFocus: Boolean) { super.onWindowFocusChanged(hasFocus); if (hasFocus) goImmersive() }
-    override fun onPause() { super.onPause(); player.pause(); web.onPause() }
-    override fun onResume() { super.onResume(); web.onResume(); emitToWeb("resume", "") }
+    override fun onPause() { super.onPause(); player.pause(); tiles.forEach { it?.player?.pause() }; web.onPause() }
+    override fun onResume() { super.onResume(); web.onResume(); tiles.forEach { it?.player?.resume() }; emitToWeb("resume", "") }
     override fun onSaveInstanceState(outState: Bundle) { super.onSaveInstanceState(outState); web.saveState(outState) }
-    override fun onDestroy() { remote.stop(); player.release(); web.destroy(); super.onDestroy() }
+    override fun onDestroy() { remote.stop(); releaseTiles(); player.release(); web.destroy(); super.onDestroy() }
 
     private fun checkWebViewVersion() {
         val pkg = WebViewCompat.getCurrentWebViewPackage(this) ?: return

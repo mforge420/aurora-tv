@@ -1,3 +1,2 @@
-- New channel banner: playlist and group, channel name with picture resolution, programme with time left, and what's next
-- Press OK while watching for quick controls: Pause, Last channel, TV guide, Recent channels, Multi-view and Options (◀ ▶ to choose)
-- Recent channels: a row of cards with what's on now and next, from all your playlists
+- Multi-view is much smoother: every screen now uses the TV's hardware video player, with lighter buffering and resolution matched to the screen size
+- Choosing a channel for a screen now shows categories (Favorites, Recently watched, All channels and your provider's groups) next to the channels, plus search

@@ -106,7 +106,8 @@ export class Engine extends Emitter {
       const hls = new Hls({
         enableWorker: true,
         lowLatencyMode: settings.get('lowLatency'),
-        maxBufferLength: settings.get('bufferSeconds'),
+        maxBufferLength: this.opts.tile ? 10 : settings.get('bufferSeconds'),
+        maxMaxBufferLength: this.opts.tile ? 20 : 600,
         backBufferLength: live ? 30 : 90,
         liveSyncDurationCount: 3,
         manifestLoadingMaxRetry: 2, levelLoadingMaxRetry: 3, fragLoadingMaxRetry: 4,
@@ -132,7 +133,8 @@ export class Engine extends Emitter {
       if (!mpegts.isSupported()) throw new Error('MSE unsupported');
       const p = mpegts.createPlayer(
         { type: engine === 'flv' ? 'flv' : 'mpegts', isLive: this.opts.live !== false, url: new URL(src, location.href).href },
-        { enableWorker: true, lazyLoad: false, liveBufferLatencyChasing: this.opts.live !== false, liveBufferLatencyMaxLatency: 6, liveBufferLatencyMinRemain: 1.5, autoCleanupSourceBuffer: true },
+        // multi-view screens: don't chase the live edge (constant rate changes looked like buffering)
+        { enableWorker: true, lazyLoad: false, liveBufferLatencyChasing: this.opts.live !== false && !this.opts.tile, liveBufferLatencyMaxLatency: 6, liveBufferLatencyMinRemain: 1.5, autoCleanupSourceBuffer: true },
       );
       this.mts = p;
       p.on(mpegts.Events.ERROR, (type, detail) => this.#fail(tok, new Error(`${type}: ${detail}`)));
