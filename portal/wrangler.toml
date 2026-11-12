@@ -1,0 +1,16 @@
+name = "lumora-tv"
+main = "src/worker.js"
+compatibility_date = "2024-11-01"
+workers_dev = true
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "lumora-tv"
+database_id = "00000000-0000-0000-0000-000000000000" # replaced on first deploy
+
+# Secret (set with `wrangler secret put SETUP_KEY`): one-time key that lets the owner
+# create the admin password on first visit.

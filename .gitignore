@@ -6,3 +6,5 @@ android/local.properties
 android/keystore.properties
 *.jks
 !android/app/debug.keystore
+portal/node_modules/
+portal/.wrangler/

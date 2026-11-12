@@ -270,6 +270,7 @@ class MainActivity : ComponentActivity() {
     // ------------------------------------------------------------------ JS bridge
     inner class Bridge {
         @JavascriptInterface fun version(): String = BuildConfig.VERSION_NAME
+        @JavascriptInterface fun deviceModel(): String = "${Build.MANUFACTURER} ${Build.MODEL}".trim()
         @JavascriptInterface fun isTv(): Boolean = packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
         @JavascriptInterface fun play(json: String) = runOnUiThread { player.play(json) }
         @JavascriptInterface fun stop() = runOnUiThread { player.stop() }

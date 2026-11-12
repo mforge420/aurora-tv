@@ -7,6 +7,7 @@ import { player } from './player.js';
 import { icon, toast, confirmDialog } from './ui.js';
 import { isNative, nativeApi } from './native.js';
 import { autoCheck } from './updater.js';
+import { remote } from './remote.js';
 
 const VIEWS = {
   live: { label: 'Live TV', icon: 'live', load: () => import('./views/live.js') },
@@ -142,6 +143,7 @@ async function boot() {
     }
   }, 15000);
   if (isNative) setTimeout(() => autoCheck(), 6000);
+  if (remote.enabled) setTimeout(() => remote.start(), 3000);
   if (!isNative && 'serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
 boot().catch((e) => { console.error(e); document.body.append(h('pre.fatal', String(e.stack || e))); });

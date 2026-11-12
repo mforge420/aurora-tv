@@ -6,9 +6,10 @@ import { addSourceDialog } from './addsource.js';
 import { nav } from '../nav.js';
 import { isNative, nativeApi } from '../native.js';
 import { currentVersion, manualCheck } from '../updater.js';
+import { remote } from '../remote.js';
 
 const SECTIONS = [
-  ['playlists', 'Playlists', 'list'], ['appearance', 'Appearance', 'sparkle'], ['player', 'Playback', 'play'],
+  ['playlists', 'Playlists', 'list'], ['remote', 'Remote management', 'server'], ['appearance', 'Appearance', 'sparkle'], ['player', 'Playback', 'play'],
   ['guide', 'TV Guide', 'guide'], ['groups', 'Groups & parental', 'lock'], ['backup', 'Backup', 'upload'], ['about', 'About', 'info'],
 ];
 const ACCENTS = [['aurora', 'Aurora'], ['ocean', 'Ocean'], ['emerald', 'Emerald'], ['sunset', 'Sunset'], ['rose', 'Rose'], ['mono', 'Mono']];
@@ -30,7 +31,7 @@ export default function settingsView(root, { go }) {
     // keep focus on the same control when the content re-renders (e.g. after a toggle)
     const ae = document.activeElement;
     const idx = content.contains(ae) ? [...content.querySelectorAll('button,input,select,label.btn')].indexOf(ae) : -1;
-    content.replaceChildren(...(SECTION_RENDER[sec]?.() || []));
+    content.replaceChildren(...(SECTION_RENDER[sec]?.() || []).filter(Boolean));
     if (idx > -1) {
       const all = content.querySelectorAll('button,input,select,label.btn');
       (all[Math.min(idx, all.length - 1)] || side.querySelector('.active'))?.focus({ preventScroll: true });
@@ -61,7 +62,7 @@ export default function settingsView(root, { go }) {
           h('div.src-main',
             h('b', s.name), h('small.muted', s.type === 'xtream' ? `Xtream · ${s.server}` : s.local ? 'Local file' : s.url),
             h('div.src-stats', h('span', `${c.live.toLocaleString()} channels`), h('span', `${c.movies.toLocaleString()} movies`), h('span', `${c.series.toLocaleString()} series`),
-              h('span', `Updated ${ago(s.updated)}`), exp && h('span', `Expires ${exp}`)),
+              h('span', `Updated ${ago(s.updated)}`), exp && h('span', `Expires ${exp}`), s.remoteId && h('span.managed', 'Managed from portal')),
             h('div.src-stats', h('span', s.epgUrl ? `Guide: ${s.epgCount ? s.epgCount.toLocaleString() + ' channels · ' : ''}${ago(s.epgUpdated)}` : 'No guide URL'), s.epgError && h('span.err', 'Guide error: ' + s.epgError))),
           h('div.src-actions',
             !s.local && h('button.icon-btn', { title: 'Refresh playlist', onclick: async (e) => { const b = e.currentTarget; b.classList.add('spin'); try { await lib.refreshSource(s); lib.rebuild(); toast('Playlist refreshed', { type: 'ok', icon: 'check' }); } catch (er) { toast(er.message, { type: 'error' }); } b.classList.remove('spin'); draw(); }, html: icon('refresh') }),
@@ -71,6 +72,35 @@ export default function settingsView(root, { go }) {
       row('Refresh everything', 'Reload all playlists and guide data now', h('button.btn.ghost', { onclick: async (e) => { const b = e.currentTarget; b.disabled = true; b.lastChild.textContent = 'Refreshing…'; await lib.refreshAll(); b.disabled = false; draw(); toast('All sources refreshed', { type: 'ok', icon: 'check' }); }, html: icon('refresh') + '<span>Refresh</span>' })),
       row('Auto-refresh playlists', null, select('playlistAutoRefreshHours', [[0, 'Never'], [6, 'Every 6 hours'], [12, 'Every 12 hours'], [24, 'Daily'], [72, 'Every 3 days']])),
     ],
+    remote: () => {
+      const st = remote.status;
+      const head = h('div.sec-head', h('h2', 'Remote management'));
+      const intro = h('p.muted', 'Let someone manage this TV from the Lumora web portal (add or change playlists, refresh, update) from anywhere.');
+      if (!remote.enabled) {
+        const url = h('input.text', { value: remote.portal, placeholder: 'https://your-portal.workers.dev', 'data-enter': 'nav' });
+        const msg = h('p.form-status');
+        if (st.note) { msg.className = 'form-status error'; msg.textContent = st.note; }
+        return [head, intro,
+          row('Portal address', 'Given to you by whoever manages your TVs', url),
+          row('Turn on', 'Shows a pairing code to enter on the portal', h('button.btn.primary', { onclick: async (e) => {
+            const b = e.currentTarget; b.disabled = true; msg.className = 'form-status'; msg.textContent = 'Connecting…';
+            try { await remote.enable(url.value); draw(); } catch (er) { msg.className = 'form-status error'; msg.textContent = er.message; b.disabled = false; }
+          }, html: icon('link') + '<span>Turn on</span>' })), msg];
+      }
+      if (st.state === 'paired' || remote.s?.claimed) {
+        return [head,
+          h('div.remote-paired', h('span.remote-ok', { html: icon('check') }), h('div', h('b', `Managed as “${st.name || remote.s?.name || 'TV'}”`), h('small.muted', `Portal: ${remote.portal}${st.lastSync ? ' · last checked in ' + new Date(st.lastSync).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}`))),
+          st.error ? h('p.form-status.error', `Can't reach the portal right now: ${st.error}`) : null,
+          h('p.muted.small', 'Playlists added from the portal appear here automatically. Changes arrive within about 30 seconds.'),
+          row('Turn off', 'Stop remote management. Your playlists stay on this TV.', h('button.btn.ghost', { onclick: async () => { if (await confirmDialog('Turn off remote management?', 'Playlists stay on this TV, but the portal can no longer change them.', { ok: 'Turn off', danger: true })) { remote.disable(); draw(); } }, html: icon('x') + '<span>Turn off</span>' }))];
+      }
+      return [head,
+        h('div.remote-code', h('small.muted', 'Pairing code'), h('div.code', st.code || '······'),
+          h('p', 'On your phone or computer, open ', h('b', remote.portal.replace(/^https?:\/\//, '')), ', choose ', h('b', 'Add a TV'), ' and enter this code.'),
+          h('small.muted', 'The code changes every 15 minutes. This screen updates by itself once paired.')),
+        st.error ? h('p.form-status.error', st.error) : null,
+        row('Not now', 'You can turn this on again anytime', h('button.btn.ghost', { onclick: () => { remote.disable(); draw(); }, html: icon('x') + '<span>Cancel pairing</span>' }))];
+    },
     appearance: () => [
       h('h2', 'Appearance'),
       row('Accent', 'Colour used for focus and highlights', h('div.swatches', ACCENTS.map(([k, l]) => h('button.swatch' + (settings.get('accent') === k ? '.on' : ''), { title: l, dataset: { accent: k }, onclick: () => { settings.set('accent', k); draw(); } })))),
@@ -175,5 +205,6 @@ export default function settingsView(root, { go }) {
 
   draw();
   const off = lib.on('change', () => { if (sec === 'playlists') draw(); });
-  return { focus: () => nav.focus(side.querySelector('.active')), destroy: off, back: () => { if (content.contains(document.activeElement)) { side.querySelector('.active')?.focus(); return true; } return false; } };
+  const offRemote = remote.on('status', () => { if (sec === 'remote' && document.activeElement?.tagName !== 'INPUT') draw(); });
+  return { focus: () => nav.focus(side.querySelector('.active')), destroy: () => { off(); offRemote(); }, back: () => { if (content.contains(document.activeElement)) { side.querySelector('.active')?.focus(); return true; } return false; } };
 }
