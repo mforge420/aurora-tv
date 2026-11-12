@@ -1,4 +1,5 @@
 import { h, esc, logoEl, fmtClock, fmtDay, debounce, nameGradient, initials } from '../util.js';
+import { imgUrl } from '../util.js';
 import { lib } from '../library.js';
 import { player } from '../player.js';
 import { icon, toast } from '../ui.js';
@@ -48,7 +49,7 @@ export default function searchView(root, { go }) {
       live ? h('span.live-pill', 'LIVE') : cu ? h('span.cu-pill', 'CATCH-UP') : past ? null : h('span.pill', { html: icon('bell') }));
     })));
     const posterRow = (title, arr, view) => section(title, arr.map((m) => h('button.poster.small', { onclick: () => go(view, { open: m.id }) },
-      h('div.art', { style: { background: nameGradient(m.name) } }, h('span.ph', initials(m.name)), (m.logo || m.cover) && h('img', { src: m.logo || m.cover, loading: 'lazy', alt: '', referrerpolicy: 'no-referrer', onload: (e) => e.target.classList.add('ok'), onerror: (e) => e.target.remove() })),
+      h('div.art', { style: { background: nameGradient(m.name) } }, h('span.ph', initials(m.name)), (m.logo || m.cover) && h('img', { src: imgUrl(m.logo || m.cover), loading: 'lazy', alt: '', referrerpolicy: 'no-referrer', onload: (e) => e.target.classList.add('ok'), onerror: (e) => e.target.remove() })),
       h('div.pt', m.name))), 'posters');
     if (mv.length) results.append(posterRow('Movies', mv, 'movies'));
     if (se.length) results.append(posterRow('Series', se, 'series'));

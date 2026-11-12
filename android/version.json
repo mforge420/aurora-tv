@@ -1,10 +1,9 @@
 {
-    "versionCode": 5,
-    "versionName": "1.0.4",
+    "versionCode": 6,
+    "versionName": "1.0.5",
     "url": "https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk",
     "notes": [
-        "Settings: the side menu no longer pops up while moving through settings",
-        "Remote navigation: focus never gets lost after a screen refreshes",
-        "Left from a settings page goes to the settings sections first, then the side menu"
+        "Channel logos now show in the TV guide, channel list and banner, including logos that only come from your provider's guide data",
+        "Logos and posters load through the app's own connection (works with http logo servers and redirects) and are cached, so they appear instantly"
     ]
 }

@@ -96,16 +96,35 @@ export function initials(name) {
   return ((w[0]?.[0] || '?') + (w.length > 1 ? w[1][0] : (w[0]?.[1] || ''))).toUpperCase();
 }
 
+/**
+ * Image URL to load. In the Android app images go through the built-in network
+ * layer (/api/fetch): it follows http↔https redirects, sends a normal player
+ * User-Agent, isn't affected by mixed-content rules, and caches on disk.
+ */
+export function imgUrl(src) {
+  if (!src) return '';
+  src = String(src).trim();
+  if (window.AuroraNative && /^https?:\/\//i.test(src)) return '/api/fetch?url=' + encodeURIComponent(src);
+  return src;
+}
+
+// Remember which logos loaded / failed so re-rendered rows show them instantly
+// (no initials flash) and broken URLs aren't retried on every redraw.
+const logoState = new Map();
+
 /** Logo element with graceful fallback */
 export function logoEl(src, name, cls = 'logo') {
   const el = h('div', { class: cls, style: { background: nameGradient(name) } }, h('span', initials(name)));
-  if (src) {
-    const img = new Image();
-    img.loading = 'lazy'; img.decoding = 'async'; img.alt = '';
-    img.referrerPolicy = 'no-referrer';
-    img.onload = () => { el.style.background = ''; el.classList.add('has-img'); el.replaceChildren(img); };
-    img.src = src;
-  }
+  const url = imgUrl(src);
+  if (!url || logoState.get(url) === false) return el;
+  const img = new Image();
+  img.decoding = 'async'; img.alt = '';
+  img.referrerPolicy = 'no-referrer';
+  const show = () => { el.style.background = ''; el.classList.add('has-img'); el.replaceChildren(img); };
+  if (logoState.get(url) === true) { img.src = url; show(); return el; }
+  img.onload = () => { if (logoState.size > 4000) logoState.clear(); logoState.set(url, true); show(); };
+  img.onerror = () => logoState.set(url, false);
+  img.src = url;
   return el;
 }
 

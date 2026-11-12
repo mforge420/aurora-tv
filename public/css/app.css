@@ -665,3 +665,4 @@ html.native .p-osd { background: linear-gradient(transparent 50%, rgba(0,0,0,.7)
 .modal.update { width: min(36rem, 94vw); }
 .modal.update .row.end { flex-wrap: wrap; }
 .modal.update .row.end .btn:first-child { margin-right: auto; }
+.g-ch .logo.sm { width: 3.2rem; height: 2.2rem; }

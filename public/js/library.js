@@ -290,7 +290,12 @@ class Library extends Emitter {
     for (const s of this.sources) for (const ch of s._cat?.live || []) {
       let k = ch.epgId && (progs[ch.epgId] ? ch.epgId : lower.get(ch.epgId.toLowerCase()));
       if (!k) k = byName.get(normName(ch.tvgName || ch.name));
-      if (k) this.epgIndex.set(ch.id, progs[k]);
+      if (k) {
+        this.epgIndex.set(ch.id, progs[k]);
+        // Many providers only put channel logos in the guide data
+        const icon = this.epg.channels[k]?.i;
+        if (icon && (!ch.logo || ch.epgLogo)) ch.logo = ch.epgLogo = icon;
+      }
     }
   }
 

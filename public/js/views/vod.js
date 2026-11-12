@@ -1,4 +1,5 @@
 import { h, esc, fmtDuration, nameGradient, initials, store, debounce, rem } from '../util.js';
+import { imgUrl } from '../util.js';
 import { VList } from '../vlist.js';
 import { lib } from '../library.js';
 import { player } from '../player.js';
@@ -78,7 +79,7 @@ export default function vodView(root, { name, arg }) {
     const el = h('button.poster', { onclick: () => (isSeries ? openSeries(m) : openMovie(m)) },
       h('div.art', { style: { background: nameGradient(m.name) } },
         h('span.ph', initials(m.name)),
-        img && h('img', { src: img, loading: 'lazy', decoding: 'async', alt: '', referrerpolicy: 'no-referrer', onerror: (e) => e.target.remove(), onload: (e) => e.target.classList.add('ok') }),
+        img && h('img', { src: imgUrl(img), loading: 'lazy', decoding: 'async', alt: '', referrerpolicy: 'no-referrer', onerror: (e) => e.target.remove(), onload: (e) => e.target.classList.add('ok') }),
         m.rating ? h('span.rating', { html: icon('star') + (+m.rating).toFixed(1) }) : null,
         lib.isFav(m.id) ? h('span.fav', { html: icon('star') }) : null,
         r ? h('span.progress', h('i', { style: { width: (r.pos / r.dur * 100) + '%' } })) : null),
@@ -119,7 +120,7 @@ async function openMovie(m) {
     try { const r = await lib.xtream(src).api('get_vod_info', { vod_id: m.xid }); info = r?.info || {}; } catch {}
   }
   const backdrop = (Array.isArray(info.backdrop_path) ? info.backdrop_path[0] : info.backdrop_path) || info.cover_big || m.logo;
-  if (backdrop) hero.append(h('img', { src: backdrop, alt: '', referrerpolicy: 'no-referrer', onload: (e) => e.target.classList.add('ok'), onerror: (e) => e.target.remove() }));
+  if (backdrop) hero.append(h('img', { src: imgUrl(backdrop), alt: '', referrerpolicy: 'no-referrer', onload: (e) => e.target.classList.add('ok'), onerror: (e) => e.target.remove() }));
   const r = lib.resume[m.id];
   const url = lib.movieUrl(m);
   const play = (startAt = 0) => { md.close(); player.playVod(m, url, { kind: 'movie', startAt, subtitle: [info.releasedate?.slice(0, 4) || m.year, info.genre].filter(Boolean).join(' · ') }); };
@@ -129,7 +130,7 @@ async function openMovie(m) {
   const meta = [info.releasedate?.slice(0, 4) || m.year, info.duration || (info.duration_secs ? fmtDuration(info.duration_secs) : ''), info.genre, m.rating ? '★ ' + (+m.rating).toFixed(1) : ''].filter(Boolean);
   body.replaceChildren(
     h('div.detail-main',
-      h('div.detail-poster', { style: { background: nameGradient(m.name) } }, h('span.ph', initials(m.name)), (info.movie_image || m.logo) && h('img', { src: info.movie_image || m.logo, alt: '', referrerpolicy: 'no-referrer', onerror: (e) => e.target.remove() })),
+      h('div.detail-poster', { style: { background: nameGradient(m.name) } }, h('span.ph', initials(m.name)), (info.movie_image || m.logo) && h('img', { src: imgUrl(info.movie_image || m.logo), alt: '', referrerpolicy: 'no-referrer', onerror: (e) => e.target.remove() })),
       h('div.detail-text',
         h('h1', info.name || m.name),
         h('div.meta-row', meta.map((x) => h('span', x))),
@@ -169,7 +170,7 @@ async function openSeries(s) {
     }
   } catch (e) { body.replaceChildren(h('p.muted', 'Could not load series: ' + e.message)); return; }
   const backdrop = (Array.isArray(info.backdrop_path) ? info.backdrop_path[0] : info.backdrop_path) || s.backdrop || s.cover;
-  if (backdrop) hero.append(h('img', { src: backdrop, alt: '', referrerpolicy: 'no-referrer', onload: (e) => e.target.classList.add('ok'), onerror: (e) => e.target.remove() }));
+  if (backdrop) hero.append(h('img', { src: imgUrl(backdrop), alt: '', referrerpolicy: 'no-referrer', onload: (e) => e.target.classList.add('ok'), onerror: (e) => e.target.remove() }));
   const sNums = [...seasons.keys()].sort((a, b) => a - b);
   const flat = sNums.flatMap((n) => seasons.get(n));
   // find the episode to continue
@@ -193,7 +194,7 @@ async function openSeries(s) {
     epList.replaceChildren(...(seasons.get(season) || []).map((e) => {
       const r = lib.resume[e.id];
       return h('button.episode', { onclick: () => playEp(e, r?.pos || 0) },
-        h('div.ep-img', { style: { background: nameGradient(s.name + e.episode) } }, e.img && h('img', { src: e.img, loading: 'lazy', alt: '', referrerpolicy: 'no-referrer', onerror: (ev) => ev.target.remove() }), h('span.ep-n', 'E' + e.episode),
+        h('div.ep-img', { style: { background: nameGradient(s.name + e.episode) } }, e.img && h('img', { src: imgUrl(e.img), loading: 'lazy', alt: '', referrerpolicy: 'no-referrer', onerror: (ev) => ev.target.remove() }), h('span.ep-n', 'E' + e.episode),
           r && h('span.progress', h('i', { style: { width: (r.pos / r.dur * 100) + '%' } }))),
         h('div.ep-text', h('b', e.title), e.dur && h('small.muted', e.dur), e.plot && h('p.small.muted', e.plot)));
     }));
@@ -204,7 +205,7 @@ async function openSeries(s) {
   const favBtn = h('button.btn.ghost' + (fav() ? '.on' : ''), { onclick: () => { lib.toggleFav(s.id); favBtn.classList.toggle('on', fav()); }, html: icon('star') + '<span>Favorite</span>' });
   body.replaceChildren(
     h('div.detail-main',
-      h('div.detail-poster', { style: { background: nameGradient(s.name) } }, h('span.ph', initials(s.name)), (info.cover || s.cover) && h('img', { src: info.cover || s.cover, alt: '', referrerpolicy: 'no-referrer', onerror: (e) => e.target.remove() })),
+      h('div.detail-poster', { style: { background: nameGradient(s.name) } }, h('span.ph', initials(s.name)), (info.cover || s.cover) && h('img', { src: imgUrl(info.cover || s.cover), alt: '', referrerpolicy: 'no-referrer', onerror: (e) => e.target.remove() })),
       h('div.detail-text',
         h('h1', info.name || s.name),
         h('div.meta-row', [info.releaseDate?.slice(0, 4) || s.year, info.genre || s.genre, `${sNums.length} season${sNums.length === 1 ? '' : 's'}`, s.rating ? '★ ' + (+s.rating).toFixed(1) : ''].filter(Boolean).map((x) => h('span', x))),

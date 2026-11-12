@@ -19,6 +19,7 @@ import java.util.zip.GZIPInputStream
  * implements /api/fetch and /api/stream natively, so no CORS restrictions apply.
  */
 class LocalServer(private val context: Context) {
+    init { cacheDir = context.cacheDir }
 
     companion object {
         const val HOST = "appassets.androidplatform.net"
@@ -26,7 +27,12 @@ class LocalServer(private val context: Context) {
         const val DEFAULT_UA =
             "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
 
-        val http: OkHttpClient = OkHttpClient.Builder()
+        /** Set by the app before first use; enables a disk cache for logos/posters. */
+        @Volatile var cacheDir: java.io.File? = null
+
+        val http: OkHttpClient by lazy { buildHttp() }
+        private fun buildHttp(): OkHttpClient = OkHttpClient.Builder()
+            .apply { cacheDir?.let { cache(okhttp3.Cache(java.io.File(it, "http"), 80L * 1024 * 1024)) } }
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(150, TimeUnit.SECONDS) // providers' xmltv.php can take minutes to start sending
             .followRedirects(true)
@@ -35,7 +41,7 @@ class LocalServer(private val context: Context) {
             .build()
 
         /** Same connection pool, but a short read timeout so stalled streams fail fast and reconnect. */
-        val media: OkHttpClient = http.newBuilder().readTimeout(20, TimeUnit.SECONDS).build()
+        val media: OkHttpClient by lazy { http.newBuilder().cache(null).readTimeout(20, TimeUnit.SECONDS).build() }
 
         private val MIME = mapOf(
             "html" to "text/html", "js" to "text/javascript", "mjs" to "text/javascript",
@@ -85,6 +91,8 @@ class LocalServer(private val context: Context) {
             ?: DEFAULT_UA
         val ref = req.url.getQueryParameter("ref")
         val b = Request.Builder().url(target).header("User-Agent", ua).header("Accept", "*/*")
+        val looksImage = Regex("\\.(png|jpe?g|gif|webp|svg|bmp|ico)(\\?|$)", RegexOption.IGNORE_CASE).containsMatchIn(target)
+        if (!rewriteHls && looksImage) b.cacheControl(okhttp3.CacheControl.Builder().maxStale(7, TimeUnit.DAYS).build())
         ref?.let { b.header("Referer", it) }
         req.requestHeaders.entries.firstOrNull { it.key.equals("range", true) }?.let { b.header("Range", it.value) }
 
@@ -114,6 +122,11 @@ class LocalServer(private val context: Context) {
 
         var stream: InputStream = body.byteStream()
         var mime = ct.substringBefore(';').ifEmpty { "application/octet-stream" }
+        if (mime.startsWith("image/") && resp.isSuccessful) {
+            // let the WebView keep logos in memory between redraws
+            headers["Cache-Control"] = "public, max-age=604800"
+            return WebResourceResponse(mime, null, status, reason, headers, stream)
+        }
         if (!rewriteHls) {
             // transparently gunzip .xml.gz guides
             val bis = BufferedInputStream(stream, 65536)
