@@ -1,10 +1,10 @@
 {
-    "versionCode": 10,
-    "versionName": "1.0.9",
+    "versionCode": 11,
+    "versionName": "1.0.10",
     "url": "https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk",
     "notes": [
-        "Series: moving between Play, seasons and episodes is now stable and fast (no more jumping back to Play)",
-        "Down from a season goes into its episodes and remembers where you were; Up returns to the seasons",
-        "Smoother popups and scrolling on TV boxes"
+        "Much faster moving between episodes (about 4\u20135\u00d7 less work per button press)",
+        "Artwork is shrunk to the size it's shown at before display, so large provider images no longer slow the TV down",
+        "Lighter focus highlight on episodes and posters"
     ]
 }

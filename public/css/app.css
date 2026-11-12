@@ -725,4 +725,15 @@ html.native .p-osd { background: linear-gradient(transparent 50%, rgba(0,0,0,.7)
 html.native .modal-wrap { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(3, 4, 8, .86); }
 html.native .detail-hero img { filter: none; }
 html.native .episode, html.native .poster, html.native .sp-card { transition-duration: .1s; }
-.episodes { content-visibility: auto; }
+
+/* Episode/poster focus must be cheap on TV GPUs: no zoom/animation, contained repaints */
+.episode { transition: none; contain: layout paint style; }
+.episode:focus { transform: none; background: #1d2140; border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.ep-img img { width: 100%; height: 100%; }
+.modal { contain: layout paint; }
+.modal.detail { will-change: scroll-position; }
+html.native .modal { box-shadow: none; }
+html.native .poster { transition: none; }
+html.native .poster:focus { transform: none; }
+html.native .poster .art { box-shadow: none; }
+html.native .poster:focus .art { box-shadow: 0 0 0 3px var(--accent); }

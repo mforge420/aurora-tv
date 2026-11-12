@@ -125,6 +125,13 @@ class LocalServer(private val context: Context) {
         if (mime.startsWith("image/") && resp.isSuccessful) {
             // let the WebView keep logos in memory between redraws
             headers["Cache-Control"] = "public, max-age=604800"
+            val w = req.url.getQueryParameter("w")?.toIntOrNull() ?: 0
+            if (w in 32..1920 && !mime.contains("svg") && !mime.contains("gif")) {
+                downscale(stream, w)?.let { (bytes, outMime) ->
+                    return WebResourceResponse(outMime, null, 200, "OK", headers, ByteArrayInputStream(bytes))
+                }
+                return json(502, "{}") // stream consumed by a failed decode: let the page show its placeholder
+            }
             return WebResourceResponse(mime, null, status, reason, headers, stream)
         }
         if (!rewriteHls) {
@@ -141,6 +148,38 @@ class LocalServer(private val context: Context) {
         }
         return WebResourceResponse(mime, null, status, reason, headers, stream)
     }
+
+    /**
+     * Providers often send 1280px+ artwork for 150px tiles. Decoding and scaling those
+     * in the WebView on every repaint is what makes TV boxes lag, so shrink them here
+     * once (they are then cached by the WebView at the small size).
+     */
+    private fun downscale(input: InputStream, targetW: Int): Pair<ByteArray, String>? = try {
+        val bytes = input.use { it.readBytes() }
+        val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        if (bounds.outWidth <= 0) null
+        else if (bounds.outWidth <= targetW * 5 / 4) Pair(bytes, bounds.outMimeType ?: "image/jpeg") // already small enough
+        else {
+            var sample = 1
+            while (bounds.outWidth / (sample * 2) >= targetW) sample *= 2
+            val opts = android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }
+            var bmp = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
+            if (bmp != null && bmp.width > targetW * 5 / 4) {
+                val h = (bmp.height.toLong() * targetW / bmp.width).toInt().coerceAtLeast(1)
+                val scaled = android.graphics.Bitmap.createScaledBitmap(bmp, targetW, h, true)
+                if (scaled !== bmp) bmp.recycle()
+                bmp = scaled
+            }
+            if (bmp == null) null else {
+                val out = java.io.ByteArrayOutputStream()
+                val png = bmp.hasAlpha()
+                bmp.compress(if (png) android.graphics.Bitmap.CompressFormat.PNG else android.graphics.Bitmap.CompressFormat.JPEG, 85, out)
+                bmp.recycle()
+                Pair(out.toByteArray(), if (png) "image/png" else "image/jpeg")
+            }
+        }
+    } catch (e: Throwable) { null } // OutOfMemoryError included: never take the app down for artwork
 
     private fun rewriteM3u8(text: String, base: String, ua: String?, ref: String?): String {
         val baseUri = java.net.URI(base)

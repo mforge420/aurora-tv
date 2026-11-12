@@ -1,3 +1,3 @@
-- Series: moving between Play, seasons and episodes is now stable and fast (no more jumping back to Play)
-- Down from a season goes into its episodes and remembers where you were; Up returns to the seasons
-- Smoother popups and scrolling on TV boxes
+- Much faster moving between episodes (about 4–5× less work per button press)
+- Artwork is shrunk to the size it's shown at before display, so large provider images no longer slow the TV down
+- Lighter focus highlight on episodes and posters

@@ -101,10 +101,15 @@ export function initials(name) {
  * layer (/api/fetch): it follows http↔https redirects, sends a normal player
  * User-Agent, isn't affected by mixed-content rules, and caches on disk.
  */
-export function imgUrl(src) {
+export function imgUrl(src, width = 0) {
   if (!src) return '';
   src = String(src).trim();
-  if (window.AuroraNative && /^https?:\/\//i.test(src)) return '/api/fetch?url=' + encodeURIComponent(src);
+  // TMDB-style hosts can serve a smaller rendition directly
+  if (width) src = src.replace(/\/t\/p\/(original|w\d+)\//, `/t/p/${width <= 200 ? 'w185' : width <= 342 ? 'w342' : width <= 780 ? 'w780' : 'w1280'}/`);
+  if (window.AuroraNative && /^https?:\/\//i.test(src)) {
+    // the app downsizes images natively to the size they're shown at (w = CSS px * ~2)
+    return '/api/fetch?url=' + encodeURIComponent(src) + (width ? '&w=' + width : '');
+  }
   return src;
 }
 
@@ -115,7 +120,7 @@ const logoState = new Map();
 /** Logo element with graceful fallback */
 export function logoEl(src, name, cls = 'logo') {
   const el = h('div', { class: cls, style: { background: nameGradient(name) } }, h('span', initials(name)));
-  const url = imgUrl(src);
+  const url = imgUrl(src, 200);
   if (!url || logoState.get(url) === false) return el;
   const img = new Image();
   img.decoding = 'async'; img.alt = '';
