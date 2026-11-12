@@ -1,4 +1,4 @@
-import { h, esc, logoEl, fmtClock, fmtDay, fmtMins, clamp, store, rem } from '../util.js';
+import { h, esc, logoEl, fmtClock, fmtDay, fmtMins, clamp, store, rem, shortName, isDivider } from '../util.js';
 import { lib, FAV_GROUP, RECENT_GROUP, ALL_GROUP } from '../library.js';
 import { player } from '../player.js';
 import { settings } from '../settings.js';
@@ -96,7 +96,8 @@ export default function guideView(root, { arg, go }) {
       const ch = rows[i];
       const sel = i === rowIdx;
       html += `<div class="g-row${sel ? ' sel' : ''}${player.isPlaying(ch.id) ? ' playing' : ''}" style="transform:translateY(${i * ROW_H}px)" data-r="${i}">`;
-      html += `<div class="g-ch" data-r="${i}"><span class="num">${settings.get('showChannelNumbers') ? ch.num : ''}</span><span class="lg" data-logo="${i}"></span><b>${esc(ch.name)}</b></div><div class="g-progs">`;
+      const num = settings.get('showChannelNumbers') && ch.num ? ch.num : '';
+      html += `<div class="g-ch${isDivider(ch) ? ' divider' : ''}" data-r="${i}" title="${esc(ch.name)}"><span class="lg" data-logo="${i}"></span><span class="g-cht">${num ? `<small>${num}</small>` : ''}<b>${esc(shortName(ch))}</b></span></div><div class="g-progs">`;
       const ps = lib.programmes(ch, viewStart, vEnd);
       if (!ps.length) {
         const isSel = sel && fp?.placeholder;

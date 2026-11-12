@@ -337,9 +337,11 @@ body.player-full .aurora-bg { display: none; }
 .g-body::-webkit-scrollbar { display: none; }
 .g-canvas { position: relative; }
 .g-row { position: absolute; left: 0; right: 0; top: 0; height: 4.25rem; display: flex; border-bottom: 1px solid var(--line); }
-.g-ch { width: 14.75rem; flex: none; display: flex; align-items: center; gap: .65rem; padding: 0 .8rem; border-right: 1px solid var(--line); background: rgba(8,9,16,.55); cursor: pointer; }
-.g-ch .num { font-size: .78rem; color: var(--muted); width: 1.8rem; text-align: right; font-weight: 600; flex: none; font-variant-numeric: tabular-nums; }
-.g-ch b { font-size: .88rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.g-ch { width: 14.75rem; flex: none; display: flex; align-items: center; gap: .7rem; padding: 0 .6rem 0 .7rem; border-right: 1px solid var(--line); background: rgba(8,9,16,.55); cursor: pointer; min-width: 0; }
+.g-cht { display: flex; flex-direction: column; justify-content: center; min-width: 0; flex: 1; line-height: 1.2; }
+.g-cht small { font-size: .7rem; color: var(--muted); font-weight: 700; font-variant-numeric: tabular-nums; }
+.g-ch b { font-size: .88rem; font-weight: 650; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.g-ch.divider b { color: var(--muted); font-size: .74rem; letter-spacing: .06em; text-transform: uppercase; }
 .g-row.sel .g-ch { background: rgba(139,156,255,0.12); background: color-mix(in srgb, var(--accent) 12%, #0b0c16); }
 .g-row.playing .g-ch b { color: var(--accent); }
 .g-progs { flex: 1; position: relative; }
@@ -612,7 +614,7 @@ input.text { max-width: 22rem; }
   .g-detail h2 { font-size: 1.2rem; }
   .g-detail .desc, .g-hint, .g-toolbar .muted { display: none; }
   .g-corner { width: 7rem; }
-  .g-ch { width: 7rem; } .g-ch .num, .g-ch b { display: none; }
+  .g-ch { width: 7rem; } .g-cht { display: none; }
   .vod-layout { grid-template-columns: 1fr; }
   .vod-layout .groups-col { display: none; }
   .poster-grid { grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr)); gap: 1rem .7rem; }
@@ -665,7 +667,7 @@ html.native .p-osd { background: linear-gradient(transparent 50%, rgba(0,0,0,.7)
 .modal.update { width: min(36rem, 94vw); }
 .modal.update .row.end { flex-wrap: wrap; }
 .modal.update .row.end .btn:first-child { margin-right: auto; }
-.g-ch .logo.sm { width: 3.2rem; height: 2.2rem; }
+.g-ch .logo.sm { width: 3.4rem; height: 2.4rem; flex: none; }
 
 /* ==========================================================================
    Sports hub

@@ -149,3 +149,20 @@ export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** Convert rem to px using the live root font size (UI scales with screen size) */
 export const rem = (n) => Math.round(n * parseFloat(getComputedStyle(document.documentElement).fontSize || 16));
+
+/**
+ * Shorter channel name for tight spaces: drops a country tag the group already
+ * shows ("[UK] GOLD FHD" in "[UK] ENTERTAINMENT" -> "GOLD FHD") and the
+ * decoration of divider channels ("##### [UK] ENTERTAINMENT #####").
+ */
+const TAG_RE = /^\s*(?:\[([A-Z]{2,3})\]|([A-Z]{2,3})\s*[|:]|([A-Z]{2,3})\s+-)\s*/;
+export function shortName(ch) {
+  let n = String(ch.name || '').replace(/^[#=*~\-\s]{3,}|[#=*~\-\s]{3,}$/g, '').trim() || ch.name;
+  const m = n.match(TAG_RE);
+  if (m) {
+    const tag = (m[1] || m[2] || m[3]).toUpperCase();
+    if (new RegExp(`(^|[^A-Z])${tag}([^A-Z]|$)`).test(String(ch.group || '').toUpperCase())) n = n.slice(m[0].length).trim() || n;
+  }
+  return n;
+}
+export const isDivider = (ch) => /^\s*[#=*~]{3,}|[#=*~]{3,}\s*$/.test(ch.name || '');
