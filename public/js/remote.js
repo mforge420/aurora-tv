@@ -5,7 +5,7 @@ import { store, Emitter } from './util.js';
 import { isNative, nativeApi } from './native.js';
 import { player } from './player.js';
 
-export const DEFAULT_PORTAL = ''; // set at deploy time (portal URL); can be changed in Settings
+export const DEFAULT_PORTAL = 'https://lumora-tv.dforge.workers.dev'; // can be changed in Settings
 
 class Remote extends Emitter {
   s = store.get('remote', null); // { url, token, claimed, name, failed: {remoteId: {updated, error}} }
