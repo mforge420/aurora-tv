@@ -1,2 +1,2 @@
-- Multi-view is much smoother: every screen now uses the TV's hardware video player, with lighter buffering and resolution matched to the screen size
-- Choosing a channel for a screen now shows categories (Favorites, Recently watched, All channels and your provider's groups) next to the channels, plus search
+- Series: episode pictures now show (more provider formats supported); episodes without a picture use the series artwork
+- Series: scrolling back up through the episodes brings the series header back properly

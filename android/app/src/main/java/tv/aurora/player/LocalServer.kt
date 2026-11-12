@@ -127,10 +127,9 @@ class LocalServer(private val context: Context) {
             headers["Cache-Control"] = "public, max-age=604800"
             val w = req.url.getQueryParameter("w")?.toIntOrNull() ?: 0
             if (w in 32..1920 && !mime.contains("svg") && !mime.contains("gif")) {
-                downscale(stream, w)?.let { (bytes, outMime) ->
-                    return WebResourceResponse(outMime, null, 200, "OK", headers, ByteArrayInputStream(bytes))
-                }
-                return json(502, "{}") // stream consumed by a failed decode: let the page show its placeholder
+                val original = try { stream.use { it.readBytes() } } catch (e: Exception) { return json(502, "{}") }
+                val (bytes, outMime) = downscale(original, w) ?: Pair(original, mime) // can't shrink it: send it as is
+                return WebResourceResponse(outMime, null, 200, "OK", headers, ByteArrayInputStream(bytes))
             }
             return WebResourceResponse(mime, null, status, reason, headers, stream)
         }
@@ -154,8 +153,7 @@ class LocalServer(private val context: Context) {
      * in the WebView on every repaint is what makes TV boxes lag, so shrink them here
      * once (they are then cached by the WebView at the small size).
      */
-    private fun downscale(input: InputStream, targetW: Int): Pair<ByteArray, String>? = try {
-        val bytes = input.use { it.readBytes() }
+    private fun downscale(bytes: ByteArray, targetW: Int): Pair<ByteArray, String>? = try {
         val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
         android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
         if (bounds.outWidth <= 0) null

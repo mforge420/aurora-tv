@@ -732,8 +732,6 @@ html.native .episode, html.native .poster, html.native .sp-card { transition-dur
 .episode { transition: none; contain: layout paint style; }
 .episode:focus { transform: none; background: #1d2140; border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .ep-img img { width: 100%; height: 100%; }
-.modal { contain: layout paint; }
-.modal.detail { will-change: scroll-position; }
 html.native .modal { box-shadow: none; }
 html.native .poster { transition: none; }
 html.native .poster:focus { transform: none; }

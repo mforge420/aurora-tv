@@ -171,7 +171,7 @@ async function openSeries(s, { focusEp } = {}) {
       for (const [sn, arr] of Object.entries(eps)) {
         seasons.set(+sn, (arr || []).map((e) => ({
           id: `${s.src}:e${e.id}`, title: e.title || `Episode ${e.episode_num}`, episode: +e.episode_num, season: +sn,
-          url: lib.xtream(src).episodeUrl(e.id, e.container_extension), plot: e.info?.plot || '', img: e.info?.movie_image || '', dur: e.info?.duration || '',
+          url: lib.xtream(src).episodeUrl(e.id, e.container_extension), plot: e.info?.plot || '', img: e.info?.movie_image || e.info?.cover_big || e.info?.cover || e.info?.still_path || e.movie_image || e.cover || '', dur: e.info?.duration || '',
         })).sort((a, b) => a.episode - b.episode));
       }
     } else {
@@ -236,11 +236,17 @@ async function openSeries(s, { focusEp } = {}) {
     if (now) drawEpisodes(); else seasonT = setTimeout(drawEpisodes, 180);
   }
   const left = (r) => { const m = Math.max(1, Math.round((r.dur - r.pos) / 60)); return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m left` : `${m} min left`; };
+  const fallbackArt = (Array.isArray(info.backdrop_path) ? info.backdrop_path[0] : info.backdrop_path) || s.backdrop || info.cover || s.cover || '';
+  const epArt = (e) => e.img || fallbackArt;
   function epTile(e, i) {
     const r = lib.resume[e.id], w = lib.isWatched(e.id), up = cont.upNext && cont.ep === e;
     const btn = h('button.episode' + (w ? '.watched' : '') + (up ? '.upnext' : ''), { onclick: () => playEp(e, r?.pos || 0), onfocus: () => lastEp.set(season, i) },
       h('div.ep-img', { style: { background: nameGradient(s.name + e.episode) } },
-        e.img && h('img', { src: imgUrl(e.img, 320), loading: 'lazy', decoding: 'async', alt: '', referrerpolicy: 'no-referrer', onerror: (ev) => ev.target.remove() }),
+        epArt(e) && h('img', { src: imgUrl(epArt(e), 320), loading: 'lazy', decoding: 'async', alt: '', referrerpolicy: 'no-referrer', onerror: (ev) => {
+          // episode picture broken: fall back to the series artwork once, then the placeholder
+          const alt = fallbackArt && imgUrl(fallbackArt, 320);
+          if (alt && ev.target.dataset.fb !== '1') { ev.target.dataset.fb = '1'; ev.target.src = alt; } else ev.target.remove();
+        } }),
         h('span.ep-n', 'E' + e.episode),
         w && h('span.ep-check', { html: icon('check') }),
         r && h('span.progress', h('i', { style: { width: (r.pos / r.dur * 100) + '%' } }))),
@@ -296,7 +302,7 @@ async function openSeries(s, { focusEp } = {}) {
       if (ep) nav.focus(ep);
       return true;
     }
-    if (k === 'up') { nav.focus(body.querySelector('.actions .btn')); return true; }
+    if (k === 'up') { md.el.scrollTo({ top: 0 }); body.querySelector('.actions .btn')?.focus({ preventScroll: true }); return true; }
     if (k === 'left' || k === 'right') { const i = sNums.indexOf(season) + (k === 'right' ? 1 : -1); if (sNums[i] != null) tabBtns.get(sNums[i]).focus(); return true; }
     return false;
   };
@@ -306,7 +312,14 @@ async function openSeries(s, { focusEp } = {}) {
     if (k === 'up') {
       const r = el.getBoundingClientRect();
       const above = [...epList.children].some((c) => c.getBoundingClientRect().bottom <= r.top + 1);
-      if (!above) { tabBtns.get(season)?.focus(); return true; }
+      if (!above) {
+        const tab = tabBtns.get(season);
+        tab?.focus({ preventScroll: true });
+        // bring the season row back with the series info above it, not just the tab itself
+        const r = tabs.getBoundingClientRect(), mr = md.el.getBoundingClientRect();
+        md.el.scrollTo({ top: Math.max(0, md.el.scrollTop + (r.top - mr.top) - mr.height * 0.45) });
+        return true;
+      }
     }
     return false;
   };
