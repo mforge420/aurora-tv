@@ -57,6 +57,7 @@ class Player {
   /** Play a live channel. opts: { list, preview } */
   playChannel(ch, { list, preview = false } = {}) {
     if (!ch) return;
+    this.returnTo = null;
     if (lib.isLocked(ch.group) && !this.unlocked?.has(ch.group)) {
       import('./ui.js').then(async ({ pinDialog }) => {
         const pin = await pinDialog('Locked group · Enter PIN');
@@ -112,14 +113,18 @@ class Player {
     this.#renderOsd(); this.#showOsd();
   }
   exitFullscreen() {
+    const last = this.item, ret = this.returnTo;
+    this.returnTo = null;
     this.unbindKeys?.(); this.unbindKeys = null;
     this.#closeSide();
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     if (this.kind !== 'live' || !this.slot?.isConnected) { this.stop(); }
     else this.#setMode('preview');
     this.onExit?.();
+    if (ret) setTimeout(() => ret(last), 0); // e.g. back to the series episode list
   }
   stop() {
+    this.returnTo = null;
     if ((this.kind === 'movie' || this.kind === 'episode') && this.item) lib.setResume(this.item.id, this.video.currentTime, this.video.duration);
     this.engine.stop();
     this.#setMode('hidden');
@@ -288,6 +293,7 @@ class Player {
   // ---------------- keys ----------------
   #keys(k, e) {
     if (this.mode !== 'full') return false;
+    if (k === 'longok') k = 'ok';
     if (this.sideOpen) {
       if (k === 'back' || (k === 'right' && this.sideKind === 'channels') || (k === 'left' && this.sideKind === 'options')) { this.#closeSide(); return true; }
       return false; // let side panel components handle

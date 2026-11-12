@@ -1,10 +1,9 @@
 {
-    "versionCode": 13,
-    "versionName": "1.0.12",
+    "versionCode": 14,
+    "versionName": "1.0.13",
     "url": "https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk",
     "notes": [
-        "Hold OK on an episode to mark it watched / unwatched (works on remotes without a Menu button)",
-        "Hold OK on a channel in Live TV for channel options (favorite, guide, multi-view, hide group)",
-        "A short press on OK works exactly as before"
+        "Holding OK / Select now works on TV remotes: hold on an episode to mark it watched, or on a channel for its options",
+        "Back from an episode returns to the episode list (on the episode you were watching), and Back from a movie returns to its details"
     ]
 }

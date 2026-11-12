@@ -9,6 +9,10 @@ const listeners = new Set();
 if (isNative) {
   document.documentElement.classList.add('native');
   window.__auroraNative = (type, data) => listeners.forEach((fn) => fn(type, data));
+  // Tell the app when a text field has focus, so OK opens the on-screen keyboard there
+  const isText = (el) => el && ((el.tagName === 'INPUT' && !/^(checkbox|radio|range|button|submit|file)$/i.test(el.type)) || el.tagName === 'TEXTAREA' || el.isContentEditable);
+  document.addEventListener('focusin', (e) => { try { N.setTextFocus(!!isText(e.target)); } catch {} });
+  document.addEventListener('focusout', () => { try { N.setTextFocus(false); } catch {} });
   // Remote buttons forwarded by the activity as DOM key events
   window.__auroraKey = (key) => {
     const target = document.activeElement && document.activeElement !== document.body ? document.activeElement : document.body;

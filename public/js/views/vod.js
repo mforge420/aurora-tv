@@ -126,7 +126,11 @@ async function openMovie(m) {
   if (backdrop) hero.append(h('img', { src: imgUrl(backdrop, 1280), alt: '', referrerpolicy: 'no-referrer', onload: (e) => e.target.classList.add('ok'), onerror: (e) => e.target.remove() }));
   const r = lib.resume[m.id];
   const url = lib.movieUrl(m);
-  const play = (startAt = 0) => { md.close(); player.playVod(m, url, { kind: 'movie', startAt, subtitle: [info.releasedate?.slice(0, 4) || m.year, info.genre].filter(Boolean).join(' · ') }); };
+  const play = (startAt = 0) => {
+    md.close();
+    player.playVod(m, url, { kind: 'movie', startAt, subtitle: [info.releasedate?.slice(0, 4) || m.year, info.genre].filter(Boolean).join(' · ') });
+    player.returnTo = () => openMovie(m);
+  };
   const fav = () => lib.isFav(m.id);
   const favBtn = h('button.btn.ghost', { onclick: () => { lib.toggleFav(m.id); favBtn.classList.toggle('on', fav()); favBtn.querySelector('span').textContent = fav() ? 'Favorited' : 'Favorite'; }, html: icon('star') + `<span>${fav() ? 'Favorited' : 'Favorite'}</span>` });
   const wLabel = () => (lib.isWatched(m.id) ? 'Watched ✓' : 'Mark as watched');
@@ -153,7 +157,7 @@ async function openMovie(m) {
 }
 
 // ------------------------------------------------------------------ series detail
-async function openSeries(s) {
+async function openSeries(s, { focusEp } = {}) {
   const src = lib.source(s.src);
   const body = h('div.detail-body', spinner('Loading episodes'));
   const hero = h('div.detail-hero', { style: { background: nameGradient(s.name) } });
@@ -192,7 +196,8 @@ async function openSeries(s) {
     return { ep: flat[0], label: 'Play', upNext: false };
   }
   let cont = nextUp();
-  let season = cont.ep?.season ?? sNums[0];
+  const backTo = focusEp && flat.find((e) => e.id === focusEp);
+  let season = backTo?.season ?? cont.ep?.season ?? sNums[0];
   const epList = h('div.episodes', { 'data-navgroup': '', 'data-longpress': '' });
   const tabs = h('div.season-tabs', { 'data-navgroup': '' });
   const mk = (e) => ({ id: e.id, name: e.title, logo: e.img || s.cover, group: s.name });
@@ -205,6 +210,8 @@ async function openSeries(s) {
     md.close();
     lib.noteSeries(s.id, ep);
     player.playVod(mk(ep), ep.url, { kind: 'episode', startAt, subtitle: `${s.name} · S${ep.season} E${ep.episode}`, next: nextFn(flat.indexOf(ep)) });
+    // Back from the player returns to this series, on the episode that was playing
+    player.returnTo = (last) => openSeries(s, { focusEp: last?.id || ep.id });
   };
 
   // Season tabs are built once and only change state; the episode list is rebuilt
@@ -326,5 +333,8 @@ async function openSeries(s) {
     epList);
   const actions = body.querySelector('.actions');
   if (actions && sNums.length) actions.__keys = (k) => { if (k === 'down') { tabBtns.get(season)?.focus(); return true; } return false; };
-  setTimeout(() => nav.focusFirst(md.el), 20);
+  setTimeout(() => {
+    const tile = backTo && [...epList.children].find((b) => b.__ep === backTo);
+    if (tile) { tile.scrollIntoView({ block: 'center' }); nav.focus(tile); } else nav.focusFirst(md.el);
+  }, 30);
 }

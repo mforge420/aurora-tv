@@ -55,6 +55,13 @@ class MainActivity : ComponentActivity() {
     private var rectAnim: ValueAnimator? = null
     private val crashTimes = mutableListOf<Long>()
 
+    // OK / Select: WebView only sees the press on release, so long-press is detected here.
+    @Volatile private var textFocus = false
+    private val keyHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var okDown = false
+    private var okLongFired = false
+    private val okLong = Runnable { okLongFired = true; sendKey("LongOk") }
+
     private val pickFile = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
         val uris = WebChromeClient.FileChooserParams.parseResult(res.resultCode, res.data)
         fileCallback?.onReceiveValue(uris); fileCallback = null
@@ -172,6 +179,24 @@ class MainActivity : ComponentActivity() {
     // ------------------------------------------------------------------ keys
     /** Remote buttons that WebView doesn't translate into useful DOM keys. */
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val isOk = event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || event.keyCode == KeyEvent.KEYCODE_ENTER ||
+            event.keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER || event.keyCode == KeyEvent.KEYCODE_BUTTON_A
+        // Text fields keep the native OK so the on-screen keyboard opens
+        if (isOk && !textFocus) {
+            when (event.action) {
+                KeyEvent.ACTION_DOWN -> if (event.repeatCount == 0) {
+                    okDown = true; okLongFired = false
+                    keyHandler.removeCallbacks(okLong)
+                    keyHandler.postDelayed(okLong, 550)
+                }
+                KeyEvent.ACTION_UP -> {
+                    keyHandler.removeCallbacks(okLong)
+                    if (okDown && !okLongFired) sendKey("Enter")
+                    okDown = false
+                }
+            }
+            return true
+        }
         val key = when (event.keyCode) {
             KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_ESCAPE -> "Escape"
             KeyEvent.KEYCODE_CHANNEL_UP, KeyEvent.KEYCODE_PAGE_UP -> "PageUp"
@@ -263,6 +288,8 @@ class MainActivity : ComponentActivity() {
         }
 
         @JavascriptInterface fun exit() = runOnUiThread { player.stop(); finish() }
+        /** The page tells us when a text field has focus (OK must then open the keyboard). */
+        @JavascriptInterface fun setTextFocus(on: Boolean) { textFocus = on }
 
         // ---- in-app updates
         @JavascriptInterface fun appVersion(): String = updater.currentVersion().toString()

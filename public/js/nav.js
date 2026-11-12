@@ -6,7 +6,7 @@ const KEYMAP = {
   PageUp: 'chup', PageDown: 'chdown', ChannelUp: 'chup', ChannelDown: 'chdown',
   MediaPlayPause: 'playpause', MediaPlay: 'play', MediaPause: 'pause', MediaStop: 'stop',
   MediaFastForward: 'ff', MediaRewind: 'rw', MediaTrackNext: 'next', MediaTrackPrevious: 'prev',
-  ContextMenu: 'menu', F1: 'menu', Info: 'info', i: 'info', I: 'info',
+  ContextMenu: 'menu', LongOk: 'longok', F1: 'menu', Info: 'info', i: 'info', I: 'info',
   m: 'mute', M: 'mute', f: 'fullscreen', F: 'fullscreen', g: 'guide', G: 'guide', '/': 'search',
 };
 const CODEMAP = { 10009: 'back', 461: 'back', 8: 'back', 427: 'chup', 428: 'chdown', 415: 'play', 19: 'pause', 413: 'stop', 417: 'ff', 412: 'rw', 10252: 'playpause', 457: 'info', 18: 'menu' };
@@ -154,6 +154,10 @@ document.addEventListener('keydown', (e) => {
   } else if (key === 'ok') {
     if (!e.isTrusted && ae && ae !== document.body && ae.tagName !== 'INPUT') { e.preventDefault(); ae.click(); return; }
     if (ae && ae !== document.body && !(ae.tagName === 'BUTTON' || ae.tagName === 'A' || ae.tagName === 'INPUT' || ae.tagName === 'SELECT')) { e.preventDefault(); ae.click(); }
+  } else if (key === 'longok') {
+    // nobody offers options here: a hold behaves like a normal press
+    e.preventDefault();
+    if (ae && ae !== document.body) ae.click();
   } else if (key === 'back') {
     e.preventDefault();
     nav.backHandler?.();
