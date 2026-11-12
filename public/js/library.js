@@ -51,18 +51,22 @@ class Library extends Emitter {
     this.backgroundRefresh();
   }
 
-  async addSource(def, onStep) {
+  async addSource(def, onStep, { activate = false } = {}) {
     const src = { id: uid(), name: def.name || 'Playlist', ...def, added: Date.now() };
     await this.refreshSource(src, onStep);
     this.sources.push(src);
     this.saveSources();
+    if (activate || this.sources.length === 1) settings.set('activeSource', src.id);
     this.rebuild();
+    if (activate) this.emit('active');
     this.refreshEpg().catch(() => {});
     return src;
   }
 
   async removeSource(id) {
+    const wasActive = this.activeId() === id;
     this.sources = this.sources.filter((s) => s.id !== id);
+    if (wasActive) settings.set('activeSource', this.sources[0]?.id || 'all');
     this.saveSources();
     await idb.del('cat:' + id); await idb.del('epg:' + id);
     this.#xtreams.delete(id);
@@ -121,13 +125,29 @@ class Library extends Emitter {
     })();
   }
 
+  // ---------------- active playlist ----------------
+  /** id of the playlist being watched, or 'all' for every playlist combined */
+  activeId() {
+    const a = settings.get('activeSource');
+    if (a === 'all' && this.sources.length > 1) return 'all';
+    return this.sources.some((s) => s.id === a) ? a : (this.sources[0]?.id || 'all');
+  }
+  activeSources() { const a = this.activeId(); return a === 'all' ? this.sources : this.sources.filter((s) => s.id === a); }
+  activeName() { const a = this.activeId(); return a === 'all' ? 'All playlists' : this.source(a)?.name || ''; }
+  setActive(id) {
+    if (id === this.activeId()) return;
+    settings.set('activeSource', id);
+    this.rebuild();
+    this.emit('active', id);
+  }
+
   rebuild() {
     const hidden = new Set(settings.get('hiddenGroups'));
     this.live = []; this.movies = []; this.series = [];
     this.byId.clear();
     const lg = new Map(), mg = new Map(), sg = new Map();
     const multi = this.sources.length > 1;
-    for (const s of this.sources) {
+    for (const s of this.activeSources()) {
       const c = s._cat; if (!c) continue;
       const pre = (g) => (multi ? `${g}` : g);
       const order = c.groupOrder || {};

@@ -175,7 +175,7 @@ async function handleAdmin(req, env, path) {
   if ((r = path.match(/^\/api\/devices\/([\w-]+)\/commands$/)) && m === 'POST') {
     const b = await body(req);
     const type = str(b.type, 30);
-    if (!['refresh', 'refreshEpg', 'checkUpdate', 'reload', 'message'].includes(type)) return err(400, 'Unknown command');
+    if (!['refresh', 'refreshEpg', 'checkUpdate', 'reload', 'message', 'activate'].includes(type)) return err(400, 'Unknown command');
     await env.DB.prepare('INSERT INTO commands (id, device_id, type, payload, created) VALUES (?,?,?,?,?)')
       .bind(newId(), r[1], type, str(b.payload, 300), now()).run();
     return json({ ok: true });

@@ -4,7 +4,7 @@ import { settings } from './settings.js';
 import { lib } from './library.js';
 import { detectProxy } from './net.js';
 import { player } from './player.js';
-import { icon, toast, confirmDialog } from './ui.js';
+import { icon, toast, confirmDialog, choose } from './ui.js';
 import { isNative, nativeApi } from './native.js';
 import { autoCheck } from './updater.js';
 import { remote } from './remote.js';
@@ -27,6 +27,7 @@ const rail = document.getElementById('rail');
 function buildRail() {
   rail.replaceChildren(
     h('div.brand', { html: `<img src="/icons/icon.svg" alt=""><span>Lumora</span>` }),
+    h('button.rail-btn.pl-switch#plswitch', { onclick: pickPlaylist, title: 'Switch playlist' }),
     h('div.rail-items', Object.entries(VIEWS).map(([k, v]) =>
       h('button.rail-btn', { dataset: { view: k }, onclick: () => go(k), html: `${icon(v.icon)}<span>${v.label}</span>` }))),
     h('div.rail-foot', h('div.rail-clock#clock'), h('div.epg-status#epgstatus')),
@@ -56,10 +57,28 @@ function focusView() {
   else nav.focusFirst(viewEl);
 }
 
-export async function go(name, arg) {
+/** Side-menu playlist switcher: shows the active playlist, opens the chooser */
+function updateSwitcher() {
+  const el = document.getElementById('plswitch');
+  if (!el) return;
+  el.hidden = lib.sources.length < 2;
+  const name = lib.activeName();
+  el.innerHTML = `${icon('list')}<span><small>Playlist</small><b>${name.replace(/[&<>]/g, '')}</b></span>`;
+}
+export async function pickPlaylist() {
+  const a = lib.activeId();
+  const opts = [
+    ...lib.sources.map((s) => ({ id: s.id, label: s.name, hint: s.counts ? `${(s.counts.live || 0).toLocaleString()} channels` : '', active: s.id === a })),
+    { id: 'all', label: 'All playlists', hint: 'Combined', active: a === 'all' },
+  ];
+  const c = await choose('Choose playlist', opts);
+  if (c && c.id !== a) { lib.setActive(c.id); toast(`Now watching: ${lib.activeName()}`, { icon: 'check', type: 'ok' }); }
+}
+
+export async function go(name, arg, force = false) {
   if (!VIEWS[name]) name = 'live';
   if (!lib.sources.length && !['settings'].includes(name)) name = 'welcome';
-  if (name === currentName && !arg) { focusView(); return; }
+  if (name === currentName && !arg && !force) { focusView(); return; }
   const mod = name === 'welcome' ? await import('./views/welcome.js') : await VIEWS[name].load();
   current?.destroy?.();
   // Live TV and the guide both have a preview window: keep the channel playing between them
@@ -121,6 +140,14 @@ async function boot() {
     el.innerHTML = s.loading ? `<div class="spinner sm"></div><span>Updating guide${s.count ? ` · ${s.count.toLocaleString()}` : ''}</span>` : '';
   });
   window.addEventListener('go', (e) => go(e.detail));
+  updateSwitcher();
+  lib.on('change', updateSwitcher);
+  // switching playlist: stop what's playing and reload the current screen for the new playlist
+  lib.on('active', () => {
+    updateSwitcher();
+    if (player.mode !== 'hidden' && player.item && !lib.byId.has(player.item.id)) player.stop();
+    if (currentName && currentName !== 'settings' && currentName !== 'welcome') go(currentName, undefined, true);
+  });
   window.addEventListener('multiview', (e) => go('multiview', e.detail));
   window.addEventListener('resize', () => player.reposition());
   document.getElementById('boot').classList.add('done');

@@ -170,7 +170,7 @@ export default function liveView(root, { go }) {
     h('button.icon-btn', { title: 'Search channels', onclick: () => go('search'), html: icon('search') }));
 
   root.append(h('div.live-layout',
-    h('section.col.groups-col', h('div.col-head', h('div.hname', 'Groups')), gl.el),
+    h('section.col.groups-col', h('div.col-head', h('div', h('div.hname', 'Groups'), lib.sources.length > 1 ? h('div.hcount.muted', lib.activeName()) : null)), gl.el),
     h('section.col.channels-col', header, cl.el),
     panel));
 

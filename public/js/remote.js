@@ -131,6 +131,10 @@ class Remote extends Emitter {
       else if (c.type === 'refreshEpg') { toast('Updating the TV guide…', { icon: 'guide' }); await lib.refreshEpg(true); }
       else if (c.type === 'checkUpdate') { const { manualCheck } = await import('./updater.js'); if (isNative) manualCheck(); }
       else if (c.type === 'message') toast(c.payload || '', { icon: 'info', ms: 15000 });
+      else if (c.type === 'activate') {
+        const id = c.payload === 'all' ? 'all' : lib.sources.find((s) => s.remoteId === c.payload)?.id;
+        if (id) { lib.setActive(id); toast(`Now watching: ${lib.activeName()}`, { icon: 'check' }); }
+      }
       else if (c.type === 'reload') { this.#done.push(c.id); await this.#report(); location.reload(); return; }
     } catch {}
     this.#done.push(c.id);
@@ -143,14 +147,17 @@ class Remote extends Emitter {
     }));
     for (const [id, f] of Object.entries(this.s.failed || {})) if (!playlists.some((p) => p.remoteId === id)) playlists.push({ remoteId: id, error: f.error });
     const local = lib.sources.filter((s) => !s.remoteId).map((s) => ({ name: s.name, type: s.local ? 'file' : s.type }));
+    const a = lib.activeId();
+    const active = a === 'all' ? 'all' : (lib.source(a)?.remoteId || 'local');
     const nowPlaying = player.mode !== 'hidden' && player.item ? player.item.name : '';
     const done = this.#done.splice(0);
     await fetch(this.s.url + '/api/device/report', {
       method: 'POST', headers: { ...this.#auth(), 'content-type': 'application/json' },
-      body: JSON.stringify({ ...this.#info(), nowPlaying, report: { playlists, local }, done }),
+      body: JSON.stringify({ ...this.#info(), nowPlaying, report: { playlists, local, active, activeName: lib.activeName() }, done }),
     }).catch(() => { this.#done.unshift(...done); });
   }
 }
 const hostOf = (u) => { try { return new URL(/^https?:/.test(u) ? u : 'http://' + u).hostname; } catch { return 'Playlist'; } };
 
 export const remote = new Remote();
+lib.on('active', () => { if (remote.enabled && remote.s?.claimed) setTimeout(() => remote.sync(), 500); });

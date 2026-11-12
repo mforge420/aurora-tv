@@ -110,7 +110,8 @@ async function deviceView(id) {
         <span class="status ${on ? 'on' : ''}"><i></i>${on ? 'Online' + (x.nowPlaying ? ' · watching ' + esc(x.nowPlaying) : '') : 'Offline · last seen ' + ago(x.lastSeen, d.now) + ' — changes apply when it\'s turned on'}</span></div>
       <div class="cols"><div>
         <section class="card sec"><div class="head" style="margin-bottom:6px"><h2>Playlists</h2><button class="btn sm primary" id="addpl">${I.plus}Add playlist</button></div>
-          ${x.playlists.length ? x.playlists.map((p) => plRow(p, rep.get(p.id))).join('') : '<p class="muted" style="padding:14px 0">No playlists managed from here yet.</p>'}
+          ${x.playlists.length ? x.playlists.map((p) => plRow(p, rep.get(p.id), x)).join('') : '<p class="muted" style="padding:14px 0">No playlists managed from here yet.</p>'}
+          ${x.playlists.length > 1 ? `<p class="small muted" style="margin-top:10px">${x.report?.active === 'all' ? 'The TV shows <b>all playlists combined</b>.' : 'The TV shows one playlist at a time.'} <button class="btn sm ghost" data-activate="all" ${x.report?.active === 'all' ? 'disabled' : ''}>Combine all</button></p>` : ''}
           ${local.length ? `<p class="muted small" style="margin-top:12px">Also on this TV (added from a file, can't be edited here): ${local.map((l) => esc(l.name)).join(', ')}</p>` : ''}
         </section>
       </div>
@@ -134,6 +135,11 @@ async function deviceView(id) {
       if (!confirm(`Remove “${p.name || 'this playlist'}” from ${x.name}?`)) return;
       await api('/api/playlists/' + p.id, { method: 'DELETE' }); toast('Removed — the TV updates in a few seconds'); draw(await load());
     };
+    for (const b of document.querySelectorAll('[data-activate]')) b.onclick = async () => {
+      await api(`/api/devices/${id}/commands`, { method: 'POST', body: { type: 'activate', payload: b.dataset.activate } });
+      toast(on ? 'Switching — the TV changes within 30 seconds' : 'Queued — it switches when the TV is next on');
+      b.disabled = true;
+    };
     for (const b of document.querySelectorAll('[data-cmd]')) b.onclick = async () => {
       let payload = '';
       if (b.dataset.cmd === 'message') { payload = prompt('Message to show on the TV'); if (!payload) return; }
@@ -149,14 +155,17 @@ async function deviceView(id) {
   draw(await load());
   timer = setInterval(async () => { if (!document.querySelector('dialog[open]')) draw(await load().catch(() => cache)); }, 10e3);
 }
-function plRow(p, r) {
+function plRow(p, r, x) {
+  const isActive = x?.report?.active === p.id;
+  const activeEl = x && x.playlists.length > 1 && r && !r.error
+    ? (isActive ? '<span class="pill ok">● Active on TV</span>' : `<button class="btn sm" data-activate="${esc(p.id)}">Make active</button>`) : '';
   const where = p.type === 'xtream' ? `${esc(p.server)} · ${esc(p.user)}` : esc(p.url);
   const stats = r && !r.error && r.counts ? `<span class="pill">${fmt(r.counts.live)} channels</span><span class="pill">${fmt(r.counts.movies)} movies</span><span class="pill">${fmt(r.counts.series)} series</span>` : '';
   const state = !r ? '<span class="pill">Waiting for the TV</span>' : r.error ? `<span class="pill bad">${esc(r.error)}</span>` : '<span class="pill ok">Loaded</span>';
   const exp = r?.expires ? `<span class="pill">Expires ${new Date(r.expires).toLocaleDateString()}</span>` : '';
   return `<div class="pl"><div class="pl-main"><b>${esc(p.name || (p.type === 'xtream' ? p.server : 'Playlist'))}</b><div class="small muted">${p.type === 'xtream' ? 'Xtream Codes' : 'M3U'} · ${where}</div>
     <div class="pl-stats">${state}${stats}${exp}${r?.epgError ? `<span class="pill bad">Guide: ${esc(r.epgError)}</span>` : ''}</div></div>
-    <button class="btn sm" data-edit="${esc(p.id)}">Edit</button><button class="btn sm ghost" data-del="${esc(p.id)}" aria-label="Remove">✕</button></div>`;
+    ${activeEl}<button class="btn sm" data-edit="${esc(p.id)}">Edit</button><button class="btn sm ghost" data-del="${esc(p.id)}" aria-label="Remove">✕</button></div>`;
 }
 
 // ------------------------------------------------------------------ dialogs

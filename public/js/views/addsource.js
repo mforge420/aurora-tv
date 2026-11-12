@@ -104,7 +104,7 @@ export function addSourceDialog({ tab: startTab } = {}) {
       busy = true; submit.disabled = true;
       status.className = 'form-status busy';
       try {
-        result = await lib.addSource(def, (s) => { status.innerHTML = `<div class="spinner sm"></div><span>${s}…</span>`; report({ state: 'adding', message: s }); });
+        result = await lib.addSource(def, (s) => { status.innerHTML = `<div class="spinner sm"></div><span>${s}…</span>`; report({ state: 'adding', message: s }); }, { activate: true });
         const c = result.counts;
         const summary = `${c.live.toLocaleString()} channels, ${c.movies.toLocaleString()} movies, ${c.series.toLocaleString()} series`;
         report({ state: 'done', message: `Added “${result.name}”: ${summary}` });

@@ -1,2 +1,3 @@
-- New: Remote management. Settings → Remote management → Turn on shows a code; pair it on the Lumora web portal to manage this TV from anywhere
-- From the portal: add, edit or remove playlists, refresh playlists or the TV guide, offer app updates, and send a message to the TV
+- One playlist is now active at a time; the side menu shows which one, and pressing it lets you switch (or choose "All playlists")
+- Settings → Playlists marks the active playlist and has "Use this playlist" on the others
+- Adding a playlist on the TV makes it active; the portal can also switch the TV's playlist

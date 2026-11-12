@@ -30,6 +30,8 @@ class Settings extends Emitter {
     this.v = { ...DEFAULTS, ...store.get('settings', {}) };
     // v2: preview now starts on OK instead of while scrolling (old installs saved `true`)
     if ((this.v.settingsVersion || 1) < 2) { this.v.previewAutoplay = false; this.v.settingsVersion = 2; store.set('settings', this.v); }
+    // v3: one active playlist at a time (previously all playlists were merged)
+    if (this.v.settingsVersion < 3) { this.v.activeSource = ''; this.v.settingsVersion = 3; store.set('settings', this.v); }
   }
   get(k) { return this.v[k]; }
   set(k, val) {

@@ -65,6 +65,9 @@ export default function settingsView(root, { go }) {
               h('span', `Updated ${ago(s.updated)}`), exp && h('span', `Expires ${exp}`), s.remoteId && h('span.managed', 'Managed from portal')),
             h('div.src-stats', h('span', s.epgUrl ? `Guide: ${s.epgCount ? s.epgCount.toLocaleString() + ' channels · ' : ''}${ago(s.epgUpdated)}` : 'No guide URL'), s.epgError && h('span.err', 'Guide error: ' + s.epgError))),
           h('div.src-actions',
+            lib.sources.length > 1 && (lib.activeId() === s.id
+              ? h('span.active-pill', { html: icon('check') + 'Active' })
+              : h('button.btn.ghost.sm-use', { onclick: () => { lib.setActive(s.id); draw(); toast(`Now watching: ${s.name}`, { icon: 'check', type: 'ok' }); }, html: icon('play') + '<span>Use this playlist</span>' })),
             !s.local && h('button.icon-btn', { title: 'Refresh playlist', onclick: async (e) => { const b = e.currentTarget; b.classList.add('spin'); try { await lib.refreshSource(s); lib.rebuild(); toast('Playlist refreshed', { type: 'ok', icon: 'check' }); } catch (er) { toast(er.message, { type: 'error' }); } b.classList.remove('spin'); draw(); }, html: icon('refresh') }),
             h('button.icon-btn', { title: 'Edit guide URL', onclick: () => editEpg(s), html: icon('guide') }),
             h('button.icon-btn.danger', { title: 'Remove', onclick: async () => { if (await confirmDialog('Remove playlist?', `“${s.name}” and its guide data will be removed from this device.`, { ok: 'Remove', danger: true })) { await lib.removeSource(s.id); draw(); } }, html: icon('trash') })));
