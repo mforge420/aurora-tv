@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#07080d">
+  <meta name="description" content="Aurora TV — a fast, beautiful IPTV player">
+  <title>Aurora TV</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/app.css">
+  <script src="/vendor/hls.min.js" defer></script>
+  <script type="module" src="/js/app.js"></script>
+</head>
+<body>
+  <div class="aurora-bg" aria-hidden="true"><i></i><i></i><i></i></div>
+  <div id="app">
+    <nav id="rail" data-navgroup></nav>
+    <main id="view"></main>
+  </div>
+  <div id="player" data-mode="hidden" inert></div>
+  <div id="modals"></div>
+  <div id="toasts"></div>
+  <div id="boot"><div class="boot-logo"></div></div>
+</body>
+</html>

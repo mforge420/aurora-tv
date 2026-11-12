@@ -1,0 +1,14 @@
+{
+  "name": "aurora-tv",
+  "version": "1.0.0",
+  "description": "Fast, beautiful, remote-friendly IPTV player (M3U, Xtream Codes, XMLTV)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "hls.js": "^1.7.4",
+    "mpegts.js": "^1.8.2"
+  }
+}

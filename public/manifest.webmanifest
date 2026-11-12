@@ -1,0 +1,10 @@
+{
+  "name": "Aurora TV",
+  "short_name": "Aurora",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#07080d",
+  "theme_color": "#07080d",
+  "icons": [{ "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
