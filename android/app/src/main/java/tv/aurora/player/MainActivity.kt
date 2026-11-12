@@ -52,6 +52,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var server: LocalServer
     private var fileCallback: ValueCallback<Array<Uri>>? = null
     private var rectAnim: ValueAnimator? = null
+    private val crashTimes = mutableListOf<Long>()
 
     private val pickFile = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
         val uris = WebChromeClient.FileChooserParams.parseResult(res.resultCode, res.data)
@@ -128,10 +129,20 @@ class MainActivity : ComponentActivity() {
             /** The page renderer died (OOM on low-end TV boxes, GPU driver crash…): rebuild instead of crashing the app. */
             override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
                 Log.w("Aurora", "WebView renderer gone (crash=${detail.didCrash()}), recreating")
+                val now = System.currentTimeMillis()
+                crashTimes.add(now); crashTimes.removeAll { now - it > 60_000 }
                 if (::player.isInitialized) player.stop()
                 root.removeView(view)
                 view.destroy()
                 if (isFinishing || isDestroyed) return true
+                if (crashTimes.size > 3) {   // crashing in a loop: stop and tell the user
+                    AlertDialog.Builder(this@MainActivity)
+                        .setTitle("Display engine keeps crashing")
+                        .setMessage("Android System WebView on this device keeps crashing. Update “Android System WebView” from the store, then reopen Aurora TV.")
+                        .setPositiveButton("Close") { _, _ -> finish() }
+                        .setCancelable(false).show()
+                    return true
+                }
                 createWebView()
                 web.loadUrl("${LocalServer.ORIGIN}/index.html")
                 web.requestFocus()
