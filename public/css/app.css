@@ -737,3 +737,22 @@ html.native .poster { transition: none; }
 html.native .poster:focus { transform: none; }
 html.native .poster .art { box-shadow: none; }
 html.native .poster:focus .art { box-shadow: 0 0 0 3px var(--accent); }
+
+/* watched state */
+.episode.watched .ep-img { opacity: .55; }
+.episode.watched .ep-text b { color: var(--text-2); }
+.ep-check { position: absolute; top: .35rem; right: .35rem; width: 1.5rem; height: 1.5rem; border-radius: 50%; background: var(--ok); color: #05210f; display: grid; place-items: center; }
+.ep-check .i { width: .95rem; height: .95rem; stroke-width: 3; }
+.ep-state { font-size: .74rem; color: var(--muted); }
+.episode.watched .ep-state { color: var(--ok); font-weight: 600; }
+.ep-up { align-self: flex-start; font: 800 .62rem/1 Inter, sans-serif; letter-spacing: .08em; padding: .25rem .4rem; border-radius: .3rem; background: var(--accent); color: var(--accent-ink); margin-bottom: .1rem; }
+.episode.upnext { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+.tab-count { margin-left: .45rem; font-size: .72rem; font-weight: 700; color: var(--muted); }
+.tab-count:empty { display: none; }
+.tab.done .tab-count { color: var(--ok); }
+.tab:focus .tab-count { color: var(--accent-ink); }
+.ep-hint { margin: -.4rem 0 .8rem .3rem; }
+.watched-badge { position: absolute; top: .45rem; right: .45rem; width: 1.6rem; height: 1.6rem; border-radius: 50%; background: var(--ok); color: #05210f; display: grid; place-items: center; box-shadow: 0 2px 6px rgba(0,0,0,.4); }
+.watched-badge .i { width: 1rem; height: 1rem; stroke-width: 3; }
+.poster .fav + .watched-badge { top: 2.3rem; }
+.ep-badge { position: absolute; left: .45rem; bottom: .55rem; font-size: .7rem; font-weight: 800; padding: .22rem .45rem; border-radius: .35rem; background: rgba(0,0,0,.75); color: #fff; }

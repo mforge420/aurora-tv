@@ -1,10 +1,11 @@
 {
-    "versionCode": 11,
-    "versionName": "1.0.10",
+    "versionCode": 12,
+    "versionName": "1.0.11",
     "url": "https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk",
     "notes": [
-        "Much faster moving between episodes (about 4\u20135\u00d7 less work per button press)",
-        "Artwork is shrunk to the size it's shown at before display, so large provider images no longer slow the TV down",
-        "Lighter focus highlight on episodes and posters"
+        "Series now show what you've watched: \u2713 on watched episodes, progress and \"min left\" on started ones, and an UP NEXT badge",
+        "Season tabs show how many episodes you've watched; the main button continues with the right next episode",
+        "Press Menu on an episode to mark it, everything up to it, or a whole season as watched / unwatched",
+        "New \"Continue watching\" row for series; posters show where you are (e.g. S2 E5); watched movies get a \u2713"
     ]
 }

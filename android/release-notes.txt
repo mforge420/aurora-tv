@@ -1,3 +1,4 @@
-- Much faster moving between episodes (about 4–5× less work per button press)
-- Artwork is shrunk to the size it's shown at before display, so large provider images no longer slow the TV down
-- Lighter focus highlight on episodes and posters
+- Series now show what you've watched: ✓ on watched episodes, progress and "min left" on started ones, and an UP NEXT badge
+- Season tabs show how many episodes you've watched; the main button continues with the right next episode
+- Press Menu on an episode to mark it, everything up to it, or a whole season as watched / unwatched
+- New "Continue watching" row for series; posters show where you are (e.g. S2 E5); watched movies get a ✓

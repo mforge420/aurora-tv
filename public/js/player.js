@@ -378,9 +378,10 @@ class Player {
   }
   #onEnded() {
     if (this.kind === 'episode' && this.vodNext && settings.get('autoplayNextEpisode')) return this.#playNext();
-    if (this.kind === 'movie' || this.kind === 'episode') { lib.setResume(this.item.id, 0, this.video.duration); this.exitFullscreen(); }
+    if (this.kind === 'movie' || this.kind === 'episode') { lib.markWatched(this.item.id, true); this.exitFullscreen(); }
   }
   #playNext() {
+    if (this.item && (this.kind === 'episode' || this.kind === 'movie')) lib.markWatched(this.item.id, true);
     const n = this.vodNext?.();
     if (n) { toast('Up next: ' + n.item.name, { icon: 'skip' }); this.playVod(n.item, n.url, n.opts); }
   }

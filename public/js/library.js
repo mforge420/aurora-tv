@@ -18,6 +18,8 @@ class Library extends Emitter {
   favs = new Set(store.get('favs', []));
   recents = store.get('recents', []);
   resume = store.get('resume', {});
+  watched = store.get('watched', {});        // movie/episode id -> time it was finished
+  seriesProg = store.get('seriesProg', {});  // series id -> { ep, label, t } last episode started
   reminders = store.get('reminders', []);
   // EPG
   epg = { channels: {}, progs: {} };
@@ -173,9 +175,22 @@ class Library extends Emitter {
   }
   setResume(id, pos, dur, meta) {
     if (!dur || !isFinite(dur) || dur < 120) return;
+    // reaching the credits counts as watched
+    if (pos > dur - Math.min(180, dur * 0.05) || pos / dur > 0.95) { this.markWatched(id, true); return; }
     if (pos < 30 || pos > dur - 60) delete this.resume[id];
     else this.resume[id] = { pos, dur, t: Date.now(), meta: meta || this.resume[id]?.meta };
     store.set('resume', this.resume);
+  }
+  markWatched(id, on = true) {
+    if (on) { this.watched[id] = Date.now(); delete this.resume[id]; store.set('resume', this.resume); }
+    else delete this.watched[id];
+    store.set('watched', this.watched);
+    this.emit('watched');
+  }
+  isWatched(id) { return !!this.watched[id]; }
+  noteSeries(seriesId, ep) {
+    this.seriesProg[seriesId] = { ep: ep.id, label: `S${ep.season} E${ep.episode}`, t: Date.now() };
+    store.set('seriesProg', this.seriesProg);
   }
   continueWatching() {
     return Object.entries(this.resume).sort((a, b) => b[1].t - a[1].t).map(([id, r]) => ({ item: this.byId.get(id) || this.resume[id].meta, r, id })).filter((x) => x.item);
