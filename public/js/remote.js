@@ -153,7 +153,7 @@ class Remote extends Emitter {
     const done = this.#done.splice(0);
     await fetch(this.s.url + '/api/device/report', {
       method: 'POST', headers: { ...this.#auth(), 'content-type': 'application/json' },
-      body: JSON.stringify({ ...this.#info(), nowPlaying, report: { playlists, local, active, activeName: lib.activeName() }, done }),
+      body: JSON.stringify({ ...this.#info(), nowPlaying, report: { playlists, local, active, activeName: lib.activeName(), diag: lib.diag }, done }),
     }).catch(() => { this.#done.unshift(...done); });
   }
 }

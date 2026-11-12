@@ -104,8 +104,6 @@ export function initials(name) {
 export function imgUrl(src, width = 0) {
   if (!src) return '';
   src = String(src).trim();
-  // TMDB-style hosts can serve a smaller rendition directly
-  if (width) src = src.replace(/\/t\/p\/(original|w\d+)\//, `/t/p/${width <= 200 ? 'w185' : width <= 342 ? 'w342' : width <= 780 ? 'w780' : 'w1280'}/`);
   if (window.AuroraNative && /^https?:\/\//i.test(src)) {
     // the app downsizes images natively to the size they're shown at (w = CSS px * ~2)
     return '/api/fetch?url=' + encodeURIComponent(src) + (width ? '&w=' + width : '');

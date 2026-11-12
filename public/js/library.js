@@ -134,6 +134,30 @@ class Library extends Emitter {
   }
   activeSources() { const a = this.activeId(); return a === 'all' ? this.sources : this.sources.filter((s) => s.id === a); }
   activeName() { const a = this.activeId(); return a === 'all' ? 'All playlists' : this.source(a)?.name || ''; }
+  // ---- structure-only diagnostics (sent to the owner's portal when remote management is on)
+  diag = {};
+  noteSeriesDiag(r) {
+    try {
+      const eps = r?.episodes;
+      const first = Array.isArray(eps) ? eps.flat()[0] : Object.values(eps || {})[0]?.[0] || Object.values(Object.values(eps || {})[0] || {})[0];
+      let info = first?.info;
+      if (typeof info === 'string') { try { info = JSON.parse(info); } catch {} }
+      const short = (v) => (typeof v === 'string' ? v.slice(0, 90) : v === undefined ? undefined : typeof v);
+      this.diag.series = {
+        at: Date.now(), topKeys: Object.keys(r || {}), episodesType: Array.isArray(eps) ? 'array' : typeof eps,
+        seasonKeys: eps && !Array.isArray(eps) ? Object.keys(eps).slice(0, 10) : undefined,
+        episodeKeys: first ? Object.keys(first) : [], infoType: (typeof first?.info === 'string' ? 'string→' : '') + (Array.isArray(info) ? 'array' : typeof info),
+        infoKeys: info && typeof info === 'object' ? Object.keys(info) : [],
+        sample: first ? { movie_image: short(info?.movie_image ?? first.movie_image), cover_big: short(info?.cover_big), plot: short(info?.plot ?? first.plot), description: short(info?.description) } : null,
+      };
+      this.diag.images = { ok: 0, failed: 0 };
+    } catch {}
+  }
+  noteImg(ok, url) {
+    const d = (this.diag.images ||= { ok: 0, failed: 0 });
+    ok ? d.ok++ : (d.failed++, d.failedExample ||= String(url).slice(0, 120));
+  }
+
   findChannel(id) { return this.byId.get(id) || this.allById?.get(id) || null; }
   recentChannels(n = 20) { return this.recents.map((id) => this.findChannel(id)).filter((c) => c && c.num !== undefined).slice(0, n); }
   /** Live channels of any playlist (active or not), e.g. for multi-view */

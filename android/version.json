@@ -1,9 +1,9 @@
 {
-    "versionCode": 22,
-    "versionName": "1.0.21",
+    "versionCode": 23,
+    "versionName": "1.0.22",
     "url": "https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk",
     "notes": [
-        "Series: episode pictures now show (more provider formats supported); episodes without a picture use the series artwork",
-        "Series: scrolling back up through the episodes brings the series header back properly"
+        "Series: each episode shows its own picture again (the app no longer asks TMDB for an image size that doesn't exist)",
+        "Series: episode descriptions and durations are read from more provider formats"
     ]
 }

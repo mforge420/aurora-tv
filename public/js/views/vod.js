@@ -109,6 +109,7 @@ export default function vodView(root, { name, arg }) {
   };
 }
 
+const obj = (v) => { if (v && typeof v === 'object' && !Array.isArray(v)) return v; if (typeof v === 'string') { try { const j = JSON.parse(v); return j && typeof j === 'object' && !Array.isArray(j) ? j : {}; } catch {} } return {}; };
 const contSeries = () => Object.entries(lib.seriesProg).sort((a, b) => b[1].t - a[1].t).map(([id]) => lib.byId.get(id)).filter(Boolean);
 const contMovies = () => lib.continueWatching().filter((c) => (c.r.meta?.kind || 'movie') === 'movie' && lib.byId.has(c.id));
 
@@ -166,14 +167,25 @@ async function openSeries(s, { focusEp } = {}) {
   try {
     if (src?.type === 'xtream') {
       const r = await lib.xtream(src).api('get_series_info', { series_id: s.xid });
-      info = r?.info || {};
-      const eps = r?.episodes || {};
+      info = obj(r?.info);
+      // Providers differ: episodes as {season: [...]} or a flat/nested array; details in
+      // `info` (sometimes a JSON string or an empty array) or on the episode itself.
+      let eps = r?.episodes || {};
+      if (Array.isArray(eps)) eps = eps.flat().reduce((m, e) => { const k = e?.season ?? obj(e?.info).season ?? 1; (m[k] ||= []).push(e); return m; }, {});
       for (const [sn, arr] of Object.entries(eps)) {
-        seasons.set(+sn, (arr || []).map((e) => ({
-          id: `${s.src}:e${e.id}`, title: e.title || `Episode ${e.episode_num}`, episode: +e.episode_num, season: +sn,
-          url: lib.xtream(src).episodeUrl(e.id, e.container_extension), plot: e.info?.plot || '', img: e.info?.movie_image || e.info?.cover_big || e.info?.cover || e.info?.still_path || e.movie_image || e.cover || '', dur: e.info?.duration || '',
-        })).sort((a, b) => a.episode - b.episode));
+        seasons.set(+sn, (Array.isArray(arr) ? arr : Object.values(arr || {})).filter(Boolean).map((e) => {
+          const ei = obj(e.info);
+          const pick = (...keys) => { for (const k of keys) { const v = ei[k] ?? e[k]; if (typeof v === 'string' && v.trim()) return v.trim(); } return ''; };
+          return {
+            id: `${s.src}:e${e.id}`, title: e.title || pick('name') || `Episode ${e.episode_num}`, episode: +e.episode_num || 0, season: +sn,
+            url: lib.xtream(src).episodeUrl(e.id, e.container_extension),
+            plot: pick('plot', 'description', 'overview', 'desc'),
+            img: pick('movie_image', 'cover_big', 'still_path', 'cover', 'thumbnail', 'image', 'stream_icon'),
+            dur: pick('duration') || (ei.duration_secs ? fmtDuration(+ei.duration_secs) : ''),
+          };
+        }).sort((a, b) => a.episode - b.episode));
       }
+      lib.noteSeriesDiag(r); // structure only, for remote troubleshooting
     } else {
       for (const e of s.m3uEpisodes || []) { if (!seasons.has(e.season)) seasons.set(e.season, []); seasons.get(e.season).push({ ...e }); }
       for (const a of seasons.values()) a.sort((x, y) => x.episode - y.episode);
@@ -242,7 +254,8 @@ async function openSeries(s, { focusEp } = {}) {
     const r = lib.resume[e.id], w = lib.isWatched(e.id), up = cont.upNext && cont.ep === e;
     const btn = h('button.episode' + (w ? '.watched' : '') + (up ? '.upnext' : ''), { onclick: () => playEp(e, r?.pos || 0), onfocus: () => lastEp.set(season, i) },
       h('div.ep-img', { style: { background: nameGradient(s.name + e.episode) } },
-        epArt(e) && h('img', { src: imgUrl(epArt(e), 320), loading: 'lazy', decoding: 'async', alt: '', referrerpolicy: 'no-referrer', onerror: (ev) => {
+        epArt(e) && h('img', { src: imgUrl(epArt(e), 320), loading: 'lazy', decoding: 'async', alt: '', referrerpolicy: 'no-referrer', onload: (ev) => { if (ev.target.dataset.fb !== '1' && e.img) lib.noteImg(true); }, onerror: (ev) => {
+          if (ev.target.dataset.fb !== '1' && e.img) lib.noteImg(false, e.img);
           // episode picture broken: fall back to the series artwork once, then the placeholder
           const alt = fallbackArt && imgUrl(fallbackArt, 320);
           if (alt && ev.target.dataset.fb !== '1') { ev.target.dataset.fb = '1'; ev.target.src = alt; } else ev.target.remove();
