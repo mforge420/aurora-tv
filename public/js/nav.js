@@ -65,7 +65,8 @@ function visibleFocusables(root) { return [...root.querySelectorAll(FOCUSABLE)].
 
 function scrollIntoViewIfNeeded(el) {
   if (el.closest('.vlist')) return; // virtual list manages its own scroll
-  el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+  // smooth scrolling stutters on TV hardware: jump instantly in the Android app
+  el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: window.AuroraNative ? 'auto' : 'smooth' });
 }
 
 function rememberOrSelf(target, from) {

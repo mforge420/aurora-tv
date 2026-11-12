@@ -720,3 +720,9 @@ html.native .p-osd { background: linear-gradient(transparent 50%, rgba(0,0,0,.7)
 .osd-score b.g { font-size: 1.45rem; font-weight: 800; margin: 0 .2rem; }
 .osd-score em { font-style: normal; color: var(--muted); }
 .osd-score small { width: 100%; font-size: .85rem; color: var(--warn); }
+
+/* TV performance: no full-screen backdrop blur / image filters behind popups in the app */
+html.native .modal-wrap { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(3, 4, 8, .86); }
+html.native .detail-hero img { filter: none; }
+html.native .episode, html.native .poster, html.native .sp-card { transition-duration: .1s; }
+.episodes { content-visibility: auto; }

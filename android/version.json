@@ -1,10 +1,10 @@
 {
-    "versionCode": 9,
-    "versionName": "1.0.8",
+    "versionCode": 10,
+    "versionName": "1.0.9",
     "url": "https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk",
     "notes": [
-        "Live scores in the Sports hub: football score and match clock, cricket scores with \"needs X runs\" status, Formula 1 top 3",
-        "When you watch a live match, the score also appears in the channel banner",
-        "Scores refresh every 30 seconds; turn them off to avoid spoilers in Settings \u2192 TV Guide \u2192 Live scores"
+        "Series: moving between Play, seasons and episodes is now stable and fast (no more jumping back to Play)",
+        "Down from a season goes into its episodes and remembers where you were; Up returns to the seasons",
+        "Smoother popups and scrolling on TV boxes"
     ]
 }

@@ -189,17 +189,46 @@ async function openSeries(s) {
     store.set('lastEp:' + s.id, ep.id);
     player.playVod(mk(ep), ep.url, { kind: 'episode', startAt, subtitle: `${s.name} · S${ep.season} E${ep.episode}`, next: nextFn(idx) });
   };
-  function drawSeason() {
-    tabs.replaceChildren(...sNums.map((n) => h('button.tab' + (n === season ? '.active' : ''), { onclick: () => { season = n; drawSeason(); }, onfocus: () => { if (season !== n) { season = n; drawSeason(); } } }, `Season ${n}`)));
+  // Season tabs are built once and only change state; the episode list is rebuilt
+  // only when the season actually changes (debounced while sliding along the tabs).
+  // Rebuilding the tabs under the focus used to drop focus and make the screen jump.
+  const tabBtns = new Map(sNums.map((n) => [n, h('button.tab', { onclick: () => setSeason(n, true), onfocus: () => setSeason(n) }, `Season ${n}`)]));
+  tabs.replaceChildren(...tabBtns.values());
+  let seasonT, drawn = null;
+  const lastEp = new Map(); // season -> last focused episode button
+  function setSeason(n, now = false) {
+    season = n;
+    for (const [k, b] of tabBtns) b.classList.toggle('active', k === n);
+    clearTimeout(seasonT);
+    if (now) drawEpisodes(); else seasonT = setTimeout(drawEpisodes, 180);
+  }
+  function drawEpisodes() {
+    if (drawn === season) return;
+    drawn = season;
     epList.replaceChildren(...(seasons.get(season) || []).map((e) => {
       const r = lib.resume[e.id];
-      return h('button.episode', { onclick: () => playEp(e, r?.pos || 0) },
-        h('div.ep-img', { style: { background: nameGradient(s.name + e.episode) } }, e.img && h('img', { src: imgUrl(e.img), loading: 'lazy', alt: '', referrerpolicy: 'no-referrer', onerror: (ev) => ev.target.remove() }), h('span.ep-n', 'E' + e.episode),
+      return h('button.episode', { onclick: () => playEp(e, r?.pos || 0), onfocus: (ev) => lastEp.set(season, ev.currentTarget) },
+        h('div.ep-img', { style: { background: nameGradient(s.name + e.episode) } }, e.img && h('img', { src: imgUrl(e.img), loading: 'lazy', decoding: 'async', alt: '', referrerpolicy: 'no-referrer', onerror: (ev) => ev.target.remove() }), h('span.ep-n', 'E' + e.episode),
           r && h('span.progress', h('i', { style: { width: (r.pos / r.dur * 100) + '%' } }))),
         h('div.ep-text', h('b', e.title), e.dur && h('small.muted', e.dur), e.plot && h('p.small.muted', e.plot)));
     }));
   }
-  drawSeason();
+  // Remote: tabs row ↔ episodes ↔ buttons, without geometric guessing
+  tabs.__keys = (k) => {
+    if (k === 'down') { drawEpisodes(); const ep = lastEp.get(season)?.isConnected ? lastEp.get(season) : epList.querySelector('.episode'); if (ep) nav.focus(ep); return true; }
+    if (k === 'up') { nav.focus(body.querySelector('.actions .btn')); return true; }
+    if (k === 'left' || k === 'right') { const i = sNums.indexOf(season) + (k === 'right' ? 1 : -1); if (sNums[i] != null) tabBtns.get(sNums[i]).focus(); return true; }
+    return false;
+  };
+  epList.__keys = (k) => {
+    if (k === 'up') {
+      const el = document.activeElement, r = el.getBoundingClientRect();
+      const above = [...epList.children].some((c) => c.getBoundingClientRect().bottom <= r.top + 1);
+      if (!above) { tabBtns.get(season)?.focus(); return true; }
+    }
+    return false;
+  };
+  setSeason(season, true);
   const contEp = lastWatched || flat[0];
   const fav = () => lib.isFav(s.id);
   const favBtn = h('button.btn.ghost' + (fav() ? '.on' : ''), { onclick: () => { lib.toggleFav(s.id); favBtn.classList.toggle('on', fav()); }, html: icon('star') + '<span>Favorite</span>' });
@@ -215,5 +244,7 @@ async function openSeries(s) {
           contEp && h('button.btn.primary', { 'data-autofocus': true, onclick: () => playEp(contEp, lib.resume[contEp.id]?.pos || 0), html: icon('play') + `<span>${lastWatched ? 'Continue' : 'Play'} S${contEp.season} E${contEp.episode}</span>` }),
           favBtn))),
     sNums.length ? tabs : h('p.muted', 'No episodes found'), epList);
+  const actions = body.querySelector('.actions');
+  if (actions && sNums.length) actions.__keys = (k) => { if (k === 'down') { tabBtns.get(season)?.focus(); return true; } return false; };
   setTimeout(() => nav.focusFirst(md.el), 20);
 }
