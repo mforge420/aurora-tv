@@ -1,15 +1,18 @@
 {
-  "name": "portal",
+  "name": "lumora-tv-portal",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "node build.mjs",
+    "dev": "node build.mjs && wrangler dev --local",
+    "deploy": "node build.mjs && wrangler deploy"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "wrangler": "^3.114.17"
-  }
+  },
+  "private": true
 }

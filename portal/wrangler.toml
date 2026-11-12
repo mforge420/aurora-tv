@@ -3,14 +3,12 @@ main = "src/worker.js"
 compatibility_date = "2024-11-01"
 workers_dev = true
 
-[assets]
-directory = "./public"
-binding = "ASSETS"
+# Portal pages are bundled into the Worker by build.mjs (src/pages.js)
 
 [[d1_databases]]
 binding = "DB"
 database_name = "lumora-tv"
-database_id = "00000000-0000-0000-0000-000000000000" # replaced on first deploy
+database_id = "b42412c2-92d9-4b3d-b0af-414f1c0ce447"
 
 # Secret (set with `wrangler secret put SETUP_KEY`): one-time key that lets the owner
 # create the admin password on first visit.

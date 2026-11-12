@@ -1,2 +1,2 @@
-- New: add playlists from your phone. Choose Add playlist → From phone, scan the QR code, type your details on the phone and tap Send to TV
-- Works over your home Wi-Fi only, protected by a one-time code shown on the TV; nothing is sent to the internet
+- New: Remote management. Settings → Remote management → Turn on shows a code; pair it on the Lumora web portal to manage this TV from anywhere
+- From the portal: add, edit or remove playlists, refresh playlists or the TV guide, offer app updates, and send a message to the TV

@@ -1,4 +1,9 @@
 // Lumora TV remote-management backend (Cloudflare Worker + D1).
+import { PAGES } from './pages.js'; // generated from ../public by build.mjs
+const SECURITY_HEADERS = {
+  'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'x-frame-options': 'DENY',
+  'content-security-policy': "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'",
+};
 // Admin API (cookie session) for the portal, device API (bearer token) for TVs.
 
 const json = (data, status = 200, headers = {}) =>
@@ -266,7 +271,9 @@ export default {
       }
       if (path.startsWith('/api/auth/')) return await handleAuth(req, env, path);
       if (path.startsWith('/api/')) return await handleAdmin(req, env, path);
-      return env.ASSETS.fetch(req);
+      const page = PAGES[path] || (req.method === 'GET' && !path.includes('.') ? PAGES['/'] : null);
+      if (!page) return new Response('Not found', { status: 404 });
+      return new Response(page[0], { headers: { 'content-type': page[1], 'cache-control': 'no-cache', ...SECURITY_HEADERS } });
     } catch (e) {
       console.error(e);
       return err(500, 'Server error');

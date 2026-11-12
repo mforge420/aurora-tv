@@ -8,3 +8,4 @@ android/keystore.properties
 !android/app/debug.keystore
 portal/node_modules/
 portal/.wrangler/
+src/pages.js

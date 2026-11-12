@@ -2,7 +2,7 @@
 
 A fast, good-looking IPTV player for **M3U** and **Xtream Codes** playlists with an **XMLTV TV guide**. It's built for TV remotes first, and also works with a keyboard, mouse or touch screen.
 
-**📥 Download the Android TV / Fire TV app (latest, v1.0.15):** [LumoraTV-1.0.0.apk](https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk)
+**📥 Download the Android TV / Fire TV app (latest, v1.0.16):** [LumoraTV-1.0.0.apk](https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk)
 (Fire TV *Downloader* code: **2139190**, or the URL `https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk`)
 
 > Lumora TV is only a player. It does not include any channels or content.
@@ -19,6 +19,17 @@ A fast, good-looking IPTV player for **M3U** and **Xtream Codes** playlists with
 ### Add playlists from your phone
 
 *Add playlist → From phone* shows a QR code. Scan it with your phone, enter the Xtream / M3U details with the phone keyboard, and tap *Send to TV*. The TV runs a small web page on your home network (port 8686) only while that screen is open. It's protected by a one-time 4-digit code (locked after 10 wrong attempts), and nothing goes through the internet.
+
+### Remote management portal
+
+`portal/` is a Cloudflare Worker + D1 app (free tier) for managing TVs from anywhere: **https://lumora-tv.dforge.workers.dev**
+
+- **Pairing:** on the TV, *Settings → Remote management → Turn on* shows a 6-character code. On the portal, choose *Add a TV*, enter the code and give the TV a name.
+- **Per TV:** online status, app version, what's playing; add, edit or remove playlists (playlists already on the TV are adopted at pairing); refresh playlists or the guide; offer the app update; show a message; restart the app; unpair.
+- **Updates:** TVs check in every 30 seconds while the app is open and apply changes then.
+- **Security:** one admin password (created once with the `SETUP_KEY` secret), sessions in HttpOnly/Secure/SameSite=Strict cookies, rate-limited logins, per-device tokens.
+
+Deploy changes with `npm run deploy` in `portal/` (needs a Cloudflare API token with Workers Scripts + D1 edit).
 
 ### Build
 
