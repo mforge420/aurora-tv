@@ -1,11 +1,10 @@
 {
-    "versionCode": 19,
-    "versionName": "1.0.18",
+    "versionCode": 20,
+    "versionName": "1.0.19",
     "url": "https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk",
     "notes": [
-        "Multi-view: pick each screen's channel from any of your playlists; every screen shows which playlist it uses",
-        "Stream limits per playlist are respected (e.g. \"Provider A 1/1\"): a playlist with no streams left can't be used for another screen",
-        "Set how many screens each playlist allows in Settings \u2192 Playlists (Xtream limits are read from your provider)",
-        "Hold OK on a multi-view screen to change, remove or watch it fullscreen"
+        "New channel banner: playlist and group, channel name with picture resolution, programme with time left, and what's next",
+        "Press OK while watching for quick controls: Pause, Last channel, TV guide, Recent channels, Multi-view and Options (\u25c0 \u25b6 to choose)",
+        "Recent channels: a row of cards with what's on now and next, from all your playlists"
     ]
 }

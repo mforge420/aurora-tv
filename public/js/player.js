@@ -179,7 +179,32 @@ class Player {
     clearTimeout(this.osdT);
     if (ms) this.osdT = setTimeout(() => { if (!this.video.paused || this.kind === 'live') this.#hideOsd(); }, ms);
   }
-  #hideOsd() { this.osdVisible = false; this.layer.classList.remove('osd-on'); }
+  #hideOsd() {
+    this.osdVisible = false; this.layer.classList.remove('osd-on');
+    if (this.osd.contains(document.activeElement)) document.activeElement.blur();
+  }
+  /** Banner with the control row focused (OK on live TV) */
+  #showControls() {
+    this.#showOsd(10000);
+    const row = this.osd.querySelector('.osd-actions');
+    if (row && !row.contains(document.activeElement)) (row.querySelector('.osd-act:not([disabled])'))?.focus({ preventScroll: true });
+  }
+  #actionKeys(k) {
+    const btns = [...this.osd.querySelectorAll('.osd-act:not([disabled])')];
+    const i = btns.indexOf(document.activeElement);
+    this.#showOsd(10000);
+    if (k === 'left' || k === 'right') { btns[Math.max(0, Math.min(btns.length - 1, i + (k === 'right' ? 1 : -1)))]?.focus({ preventScroll: true }); return true; }
+    if (k === 'ok' || k === 'longok') { document.activeElement?.click(); return true; }
+    return false;
+  }
+  #action(a) {
+    if (a === 'pause') { this.video.paused ? this.video.play() : this.video.pause(); this.#renderOsd(); this.#showOsd(this.video.paused ? 0 : 10000); }
+    if (a === 'last') this.lastChannel();
+    if (a === 'guide') { this.exitFullscreen(); window.dispatchEvent(new CustomEvent('go', { detail: 'guide' })); }
+    if (a === 'recents') this.#openRecents();
+    if (a === 'multi') { const ch = this.item; this.exitFullscreen(); window.dispatchEvent(new CustomEvent('multiview', { detail: ch })); }
+    if (a === 'options') this.#openOptions();
+  }
   #toggleOsd() { this.osdVisible ? this.#hideOsd() : this.#showOsd(); }
 
   /**
@@ -197,34 +222,48 @@ class Player {
       const key = `L|${it.id}|${now?.start}|${next?.start}|${fav}`;
       if (key !== this.osdKey) {
         this.osdKey = key;
+        const keepAct = this.osd.contains(document.activeElement) ? document.activeElement.dataset.act : null;
+        queueMicrotask(() => { if (keepAct && this.osdVisible) this.osd.querySelector(`[data-act=${keepAct}]:not([disabled])`)?.focus({ preventScroll: true }); });
+        const multi = lib.sources.length > 1;
+        const crumb = [multi ? lib.source(it.src)?.name : '', it.group].filter(Boolean).map(esc).join(' <i>/</i> ');
+        const num = settings.get('showChannelNumbers') && it.num ? `<span class="osd-chnum">${it.num}</span>` : '';
         this.osd.innerHTML = `
         <div class="osd-top"><div class="osd-clock"></div></div>
-        <div class="osd-bottom glass">
-          <div class="osd-ch">
-            <div class="osd-logo"></div>
-            <div class="osd-chmeta">
-              <div class="osd-num">${settings.get('showChannelNumbers') ? it.num : ''} ${fav ? `<span class="fav-dot">${icon('star')}</span>` : ''}</div>
-              <div class="osd-name">${esc(it.name)}</div>
-              <div class="osd-group">${esc(it.group)}</div>
-            </div>
+        <div class="osd-live">
+          <div class="osd-crumb">${crumb}</div>
+          <div class="osd-head"><span class="osd-logo"></span>${num}<h2 class="osd-name">${esc(it.name)}</h2><span class="osd-res"></span>${fav ? `<span class="fav-dot">${icon('star')}</span>` : ''}<span class="osd-paused" hidden>PAUSED</span></div>
+          <div class="osd-score" hidden></div>
+          ${now ? `<div class="osd-nowline"><span class="osd-span">${fmtClock(now.start)} – ${fmtClock(now.stop)}</span><b>${esc(now.title)}</b>${now.ep ? `<span class="ep">${esc(now.ep)}</span>` : ''}</div>
+            <div class="osd-times"><div class="bar"><i></i></div><span class="osd-left"></span></div>
+            ${now.desc ? `<p class="osd-desc">${esc(now.desc)}</p>` : ''}` : `<div class="osd-nowline"><b class="muted">No programme information</b></div>`}
+          ${next ? `<div class="osd-next"><span>Next</span> ${fmtClock(next.start)} · ${esc(next.title)}</div>` : ''}
+          <div class="osd-actions">
+            <button class="osd-act" data-act="pause">${icon('pause')}<span>Pause</span></button>
+            <button class="osd-act" data-act="last"${this.prevChannel ? '' : ' disabled'}>${icon('history')}<span>Last channel</span></button>
+            <button class="osd-act" data-act="guide">${icon('guide')}<span>TV guide</span></button>
+            <button class="osd-act" data-act="recents">${icon('list')}<span>Recent channels</span></button>
+            <button class="osd-act" data-act="multi">${icon('grid')}<span>Multi-view</span></button>
+            <button class="osd-act" data-act="options">${icon('settings')}<span>Options</span></button>
           </div>
-          <div class="osd-prog">
-            <div class="osd-score" hidden></div>
-            ${now ? `<div class="osd-now"><span class="live-pill">LIVE</span><b>${esc(now.title)}</b>${now.ep ? `<span class="ep">${esc(now.ep)}</span>` : ''}</div>
-              <div class="osd-times"><span>${fmtClock(now.start)}</span><div class="bar"><i></i></div><span>${fmtClock(now.stop)}</span></div>
-              ${now.desc ? `<p class="osd-desc">${esc(now.desc)}</p>` : ''}` : `<div class="osd-now"><span class="live-pill">LIVE</span><b>${esc(it.name)}</b></div><div class="muted">No programme information</div>`}
-            ${next ? `<div class="osd-next"><span>Next</span> ${fmtClock(next.start)} · ${esc(next.title)}</div>` : ''}
-          </div>
-          <div class="osd-hints">
-            <span><kbd>▲▼</kbd> Zap</span><span><kbd>◀</kbd> Channels</span><span><kbd>▶</kbd> Options</span><span><kbd>G</kbd> Guide</span>
-          </div>
+          <div class="osd-foot"><span class="osd-last">${this.prevChannel ? `Last · ${esc(this.prevChannel.name)}` : ''}</span>
+            <span class="osd-hints"><span><kbd>▲▼</kbd> Change channel</span><span><kbd>OK</kbd> Controls</span><span><kbd>◀ ▶</kbd> Choose</span><span><kbd>Back</kbd> Hide</span></span></div>
         </div>`;
         this.osd.querySelector('.osd-logo').append(this.#logo(it));
+        for (const b of this.osd.querySelectorAll('.osd-act')) b.onclick = () => this.#action(b.dataset.act);
+        this.osd.querySelector('.osd-actions').__keys = (k) => this.#actionKeys(k);
       }
       if (now) this.#osdScore(it, now, key);
       const pct = now ? clamp((Date.now() - now.start) / (now.stop - now.start), 0, 1) * 100 : 0;
       const bar = this.osd.querySelector('.osd-times .bar i');
       if (bar) bar.style.width = pct + '%';
+      const left = this.osd.querySelector('.osd-left');
+      if (left && now) left.textContent = `${Math.max(1, Math.round((now.stop - Date.now()) / 60000))} min left`;
+      const res = this.osd.querySelector('.osd-res');
+      if (res) { const r = this.engine.stats?.().res || ''; if (res.textContent !== r) res.textContent = r; res.hidden = !r; }
+      const paused = !!this.video.paused && this.state !== 'loading' && this.state !== 'error';
+      const pb = this.osd.querySelector('[data-act=pause]');
+      if (pb && pb.dataset.p !== String(paused)) { pb.dataset.p = String(paused); pb.innerHTML = paused ? `${icon('play')}<span>Play</span>` : `${icon('pause')}<span>Pause</span>`; }
+      const pl = this.osd.querySelector('.osd-paused'); if (pl) pl.hidden = !paused;
     } else {
       const v = this.video, dur = this.kind === 'catchup' ? (this.prog.stop - this.prog.start) / 1000 : v.duration;
       const key = `V|${it.id}|${this.kind}|${this.prog?.start}`;
@@ -298,6 +337,11 @@ class Player {
       if (k === 'back' || (k === 'right' && this.sideKind === 'channels') || (k === 'left' && this.sideKind === 'options')) { this.#closeSide(); return true; }
       return false; // let side panel components handle
     }
+    // control row in the banner has focus: ◀ ▶ choose, OK activate (▲▼ still zap below)
+    if (this.kind === 'live' && this.osdVisible && this.osd.contains(document.activeElement)) {
+      if (k === 'back') { this.#hideOsd(); return true; }
+      if (this.#actionKeys(k)) return true;
+    }
     if (k === 'digit') return this.#digit(e.key);
     if (k === 'back') {
       if (this.numBuf) { this.numBuf = ''; this.numEl.classList.remove('on'); return true; }
@@ -314,7 +358,8 @@ class Player {
       if (k === 'down' || k === 'chdown') { this.zap(1); return true; }
       if (k === 'left') { this.#openChannels(); return true; }
       if (k === 'right') { this.#openOptions(); return true; }
-      if (k === 'ok') { this.osdVisible ? this.#hideOsd() : this.#showOsd(8000); return true; }
+      if (k === 'ok') { this.#showControls(); return true; }
+      if (k === 'playpause' || k === 'pause' || k === 'play') { this.#action('pause'); return true; }
       if (k === 'prev') { this.lastChannel(); return true; }
       return true;
     }
@@ -431,6 +476,34 @@ class Player {
     this.#openSide('channels', () => [h('div.side-title', iconEl('list'), h('span', this.list.length && this.list !== lib.live ? (this.item?.group || 'Channels') : 'All channels')), vl.el]);
     requestAnimationFrame(() => { vl.setItems(list, Math.max(0, list.findIndex((c) => c.id === this.item?.id))); vl.focus(); });
   }
+
+  /** Bottom carousel of recently watched channels, from every playlist */
+  #openRecents() {
+    const list = lib.recentChannels(20);
+    if (!list.length) { toast('No recent channels yet'); return; }
+    const multi = lib.sources.length > 1;
+    const row = h('div.rec-row');
+    for (const ch of list) {
+      const [now, next] = lib.nowNext(ch);
+      const pct = now ? clamp((Date.now() - now.start) / (now.stop - now.start), 0, 1) * 100 : 0;
+      const card = h('button.rec-card' + (ch.id === this.item?.id ? '.playing' : ''), { onclick: () => { this.#closeSide(); this.playChannel(ch, { list: lib.channelsOf(ch.src) }); } },
+        h('div.rec-top', this.#logoFor(ch), h('b', ch.name)),
+        multi ? h('small.rec-pl', 'Playlist: ' + (lib.source(ch.src)?.name || '')) : null,
+        h('div.rec-now', now ? now.title : 'No programme information'),
+        now ? h('div.bar', h('i', { style: { width: pct + '%' } })) : null,
+        next ? h('small.rec-next', `Next ${fmtClock(next.start)} · ${next.title}`) : null);
+      row.append(card);
+    }
+    row.__keys = (k) => {
+      const cards = [...row.children], i = cards.indexOf(document.activeElement);
+      if (k === 'left' || k === 'right') { const n = cards[Math.max(0, Math.min(cards.length - 1, i + (k === 'right' ? 1 : -1)))]; n?.focus({ preventScroll: true }); n?.scrollIntoView({ inline: 'nearest', block: 'nearest' }); return true; }
+      if (k === 'ok' || k === 'longok') { document.activeElement?.click(); return true; }
+      return k === 'up' || k === 'down';
+    };
+    this.#openSide('recents', () => [h('div.side-title', iconEl('history'), h('span', 'Recent channels'), h('small.muted', '◀ ▶ Browse · OK Play · Back Close')), row]);
+    setTimeout(() => row.firstChild?.focus({ preventScroll: true }), 40);
+  }
+  #logoFor(ch) { return logoEl(ch.logo, ch.name, 'logo'); }
 
   #openOptions() {
     const e = this.engine;

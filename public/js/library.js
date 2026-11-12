@@ -134,6 +134,8 @@ class Library extends Emitter {
   }
   activeSources() { const a = this.activeId(); return a === 'all' ? this.sources : this.sources.filter((s) => s.id === a); }
   activeName() { const a = this.activeId(); return a === 'all' ? 'All playlists' : this.source(a)?.name || ''; }
+  findChannel(id) { return this.byId.get(id) || this.allById?.get(id) || null; }
+  recentChannels(n = 20) { return this.recents.map((id) => this.findChannel(id)).filter((c) => c && c.num !== undefined).slice(0, n); }
   /** Live channels of any playlist (active or not), e.g. for multi-view */
   channelsOf(srcId) {
     const hidden = new Set(settings.get('hiddenGroups'));
@@ -176,6 +178,9 @@ class Library extends Emitter {
     this.liveGroups = toList(lg);
     this.movieGroups = toList(mg);
     this.seriesGroups = toList(sg);
+    // every playlist's channels by id (recent channels can come from any playlist)
+    this.allById = new Map();
+    for (const s of this.sources) for (const ch of s._cat?.live || []) this.allById.set(ch.id, ch);
     this.allLiveGroups = [...new Set(this.sources.flatMap((s) => (s._cat?.live || []).map((c) => c.group)))];
     this.allVodGroups = [...new Set(this.sources.flatMap((s) => [...(s._cat?.movies || []), ...(s._cat?.series || [])].map((c) => c.group)))];
     this.buildEpgIndex();
@@ -184,7 +189,7 @@ class Library extends Emitter {
 
   channelsIn(group) {
     if (group === FAV_GROUP) return this.live.filter((c) => this.favs.has(c.id));
-    if (group === RECENT_GROUP) return this.recents.map((id) => this.byId.get(id)).filter((c) => c && c.num !== undefined);
+    if (group === RECENT_GROUP) return this.recentChannels(40);
     if (group === ALL_GROUP || !group) return this.live;
     return this.live.filter((c) => c.group === group);
   }
