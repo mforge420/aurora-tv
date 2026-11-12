@@ -25,7 +25,11 @@ class Library extends Emitter {
   epgLoading = false;
   #xtreams = new Map();
 
-  saveSources() { store.set('sources', this.sources); }
+  /** Only small metadata goes to localStorage; catalogs (_cat) live in IndexedDB. */
+  saveSources() {
+    const ok = store.set('sources', this.sources.map(({ _cat, content, ...meta }) => meta));
+    if (!ok) console.error('Could not save playlists to local storage');
+  }
   xtream(src) {
     if (!src || src.type !== 'xtream') return null;
     let x = this.#xtreams.get(src.id);

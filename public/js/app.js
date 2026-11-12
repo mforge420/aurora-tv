@@ -32,8 +32,18 @@ function buildRail() {
   rail.addEventListener('focusout', (e) => { if (!rail.contains(e.relatedTarget)) rail.classList.remove('expanded'); });
   rail.addEventListener('mouseenter', () => rail.classList.add('expanded'));
   rail.addEventListener('mouseleave', () => { if (!rail.contains(document.activeElement)) rail.classList.remove('expanded'); });
+  // The expanded rail overlaps the view, so geometric navigation could jump to
+  // elements hidden underneath it: move strictly between rail buttons instead.
   rail.__keys = (k) => {
     if (k === 'right') { focusView(); return true; }
+    if (k === 'up' || k === 'down') {
+      const btns = [...rail.querySelectorAll('.rail-btn')].filter((b) => b.offsetParent !== null);
+      const i = btns.indexOf(document.activeElement);
+      const next = btns[i + (k === 'down' ? 1 : -1)];
+      if (next) next.focus();
+      return true;
+    }
+    if (k === 'left') return true;
     return false;
   };
 }
@@ -94,6 +104,7 @@ async function boot() {
   buildRail();
   tickClock(); setInterval(tickClock, 10000);
   player.init();
+  navigator.storage?.persist?.().catch(() => {});
   await detectProxy();
   await lib.init();
   lib.on('epg-status', (s) => {

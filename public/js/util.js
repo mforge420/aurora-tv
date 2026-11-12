@@ -111,7 +111,7 @@ export function logoEl(src, name, cls = 'logo') {
 
 export const store = {
   get(k, d) { try { const v = localStorage.getItem('aurora:' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
-  set(k, v) { try { localStorage.setItem('aurora:' + k, JSON.stringify(v)); } catch {} },
+  set(k, v) { try { localStorage.setItem('aurora:' + k, JSON.stringify(v)); return true; } catch (e) { console.error('storage write failed', k, e); return false; } },
   del(k) { try { localStorage.removeItem('aurora:' + k); } catch {} },
 };
 
