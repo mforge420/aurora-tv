@@ -20,8 +20,8 @@ android {
         applicationId = "app.lumoratv.player"
         minSdk = 24
         targetSdk = 35
-        versionCode = 24
-        versionName = "1.0.23"
+        versionCode = 25
+        versionName = "1.0.24"
     }
 
     signingConfigs {

@@ -874,3 +874,62 @@ html.native .mv-tile.filled .mv-state:empty { display: none; }
 .sp-card { contain: layout paint style; }
 html.native .sp-card { transition: none; }
 html.native .sp-card:focus { transform: none; box-shadow: 0 0 0 2px var(--accent); }
+
+/* ==========================================================================
+   TV guide layout v2: preview left, details right, day bar, big logos
+   ========================================================================== */
+.guide-layout { gap: .8rem; }
+.g-top { grid-template-columns: auto 1fr; height: clamp(11rem, 37vh, 20rem); gap: 1.6rem; }
+.g-top .preview-slot.small { height: 100%; width: auto; aspect-ratio: 16/9; justify-self: start; order: 0; }
+.g-info { position: relative; min-width: 0; display: flex; flex-direction: column; }
+.g-group { position: absolute; top: 0; right: 0; display: inline-flex; align-items: center; gap: .45rem; max-width: 45%; padding: .3rem .7rem; border-radius: .6rem; font-size: .85rem; font-weight: 600; color: var(--text-2); background: transparent; border: 1px solid transparent; }
+.g-group span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.g-group .i { width: 1rem; height: 1rem; color: var(--muted); flex: none; }
+.g-group:hover { background: var(--surface-2); }
+.g-group:focus { background: var(--accent); color: var(--accent-ink); }
+.g-group:focus .i { color: var(--accent-ink); }
+.g-info .g-detail { padding: .1rem 0 0; gap: .5rem; }
+.g-detail .g-d-ch { font-size: .95rem; font-weight: 750; text-transform: uppercase; letter-spacing: .02em; color: var(--accent); padding-right: 46%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.g-detail h2 { font-size: 1.9rem; line-height: 1.15; }
+.g-d-time { display: flex; align-items: baseline; flex-wrap: wrap; gap: .4rem .8rem; font-size: 1.05rem; color: var(--text-2); }
+.g-d-time b { font-size: 1.25rem; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+.g-d-time .chip { margin: 0; align-self: center; }
+.g-d-bar { max-width: 38rem; height: .3rem; }
+.g-detail .desc { -webkit-line-clamp: 2; font-size: .95rem; }
+.g-hint { margin-top: auto; }
+
+/* day bar: ‹ Today › */
+.g-corner { width: 12.5rem; padding: 0 .4rem; justify-content: center; }
+.g-daynav { display: flex; align-items: center; gap: .25rem; width: 100%; }
+.g-dayarrow { width: 2.3rem; height: 2.3rem; border-radius: 50%; display: grid; place-items: center; color: var(--text-2); flex: none; }
+.g-dayarrow:hover { background: var(--surface-2); }
+.g-dayarrow:focus { background: var(--accent); color: var(--accent-ink); }
+.g-daybtn { flex: 1; height: 2.3rem; border-radius: 99px; background: var(--surface-3); font-weight: 700; font-size: .92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 .6rem; }
+.g-daybtn:focus { background: var(--accent); color: var(--accent-ink); }
+.g-nowmark { position: absolute; bottom: 0; width: 0; height: 0; border-left: .45rem solid transparent; border-right: .45rem solid transparent; border-top: .55rem solid var(--live); transform: translateX(-50%); }
+.g-day { display: none; }
+
+/* rows: taller, big centred logos */
+.g-row { height: 5rem; }
+.g-ch { width: 12.5rem; position: relative; justify-content: center; padding: .4rem .6rem; }
+.g-ch .g-num { position: absolute; top: .3rem; left: .45rem; font-size: .68rem; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.g-ch .logo.gl { width: 6.4rem; height: 3.6rem; border-radius: .6rem; font-size: 1rem; }
+.g-ch .logo.gl.has-img { background: transparent; }
+.g-ch .logo.gl img { padding: .15rem; }
+.g-ch > b { font-size: .95rem; font-weight: 750; text-align: center; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.g-row.sel .g-ch { background: color-mix(in srgb, var(--accent) 22%, #0b0c16); background: rgba(139,156,255,.22); }
+.g-p { padding: .45rem .75rem; gap: .12rem; }
+.g-chl { font-size: .68rem; font-weight: 750; text-transform: uppercase; letter-spacing: .03em; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.g-p .g-pt { font-size: .95rem; }
+.g-p .g-ps { font-size: .78rem; }
+.g-p.focus .g-chl { color: var(--accent-ink); opacity: .75; }
+.g-now { top: 3.2rem; width: 2px; opacity: .55; box-shadow: none; }
+.g-now::before { display: none; }
+@media (max-width: 800px) {
+  .g-top { grid-template-columns: 1fr; height: auto; }
+  .g-top .preview-slot.small { display: none; }
+  .g-group { position: static; max-width: none; align-self: flex-start; }
+  .g-detail .g-d-ch { padding-right: 0; }
+  .g-corner, .g-ch { width: 7rem; }
+  .g-ch .logo.gl { width: 4.6rem; height: 2.6rem; }
+}

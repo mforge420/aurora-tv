@@ -8,7 +8,7 @@ const SLOT = 30 * 60e3;
 let ROW_H = 68, CH_W = 236;
 
 export default function guideView(root, { arg, go }) {
-  ROW_H = rem(4.25); CH_W = window.innerWidth < 800 ? rem(7) : rem(14.75);
+  ROW_H = rem(5); CH_W = window.innerWidth < 800 ? rem(7) : rem(12.5);
   let group = arg?.group || store.get('liveGroup', ALL_GROUP);
   let rows = [];
   let rowIdx = 0;
@@ -22,27 +22,30 @@ export default function guideView(root, { arg, go }) {
   const slot = h('div.preview-slot.small', { onclick: () => { const ch = rows[rowIdx]; if (ch) player.playChannel(ch, { list: rows }); } },
     h('div.preview-ph', { html: `${icon('tv')}<span>Preview</span>` }));
   const detail = h('div.g-detail');
-  const groupBtn = h('button.chip-btn', { onclick: pickGroup });
-  const dayLbl = h('span.g-day');
+  // playlist · group (top-right of the details) — press to switch group
+  const groupBtn = h('button.g-group', { onclick: pickGroup });
+  // day switcher above the channel column: ‹ Today ›
+  const dayBtn = h('button.g-daybtn', { onclick: () => jumpTo(Date.now(), true) });
+  const dayNav = h('div.g-daynav',
+    h('button.g-dayarrow', { 'aria-label': 'Previous day', onclick: () => jumpTo(focusT - 864e5, true), html: icon('back') }),
+    dayBtn,
+    h('button.g-dayarrow', { 'aria-label': 'Next day', onclick: () => jumpTo(focusT + 864e5, true), html: icon('fwd') }));
   const timeline = h('div.g-timeline');
+  const nowMark = h('i.g-nowmark');
   const body = h('div.g-body', { tabindex: 0 });
   const canvas = h('div.g-canvas');
   const nowLine = h('div.g-now');
   body.append(canvas);
-  const grid = h('div.g-grid', h('div.g-head', h('div.g-corner', groupBtn), h('div.g-tl-wrap', timeline, dayLbl)), body, nowLine);
-  root.append(h('div.guide-layout', h('div.g-top', detail, slot), h('div.g-toolbar',
-    h('button.chip-btn', { onclick: () => jumpTo(Date.now()), html: icon('clock') + '<span>Now</span>' }),
-    h('button.chip-btn', { onclick: () => jumpTo(focusT - 864e5), html: icon('back') + '<span>-1 day</span>' }),
-    h('button.chip-btn', { onclick: () => jumpTo(focusT + 864e5), html: '<span>+1 day</span>' + icon('fwd') }),
-    h('span.spacer'),
-    h('span.muted.small', { html: '<kbd>OK</kbd> watch / catch-up / remind &nbsp; <kbd>◀ ▶</kbd> browse &nbsp; <kbd>CH±</kbd> page' })), grid));
+  const grid = h('div.g-grid', h('div.g-head', h('div.g-corner', dayNav), h('div.g-tl-wrap', timeline, nowMark)), body, nowLine);
+  root.append(h('div.guide-layout', h('div.g-top', slot, h('div.g-info', groupBtn, detail)), grid));
 
   // ------- data -------
   function setGroup(g, keepChannel) {
     group = g;
     rows = lib.channelsIn(g);
     if (!rows.length && g !== ALL_GROUP) { group = ALL_GROUP; rows = lib.channelsIn(ALL_GROUP); }
-    groupBtn.innerHTML = icon('list') + `<span>${esc(group.replace(/^[★⟲] /, ''))}</span><small>${rows.length}</small>`;
+    const pl = lib.sources.length > 1 ? lib.activeName() + ' · ' : '';
+    groupBtn.innerHTML = `<span>${esc(pl + group.replace(/^[★⟲] /, ''))}</span>${icon('list')}`;
     canvas.style.height = rows.length * ROW_H + 'px';
     if (keepChannel) { const i = rows.findIndex((c) => c.id === keepChannel); rowIdx = i > -1 ? i : 0; } else rowIdx = 0;
     body.scrollTop = Math.max(0, rowIdx * ROW_H - body.clientHeight / 2);
@@ -81,11 +84,13 @@ export default function guideView(root, { arg, go }) {
     let tl = '';
     for (let t = viewStart; t < vEnd; t += SLOT) tl += `<span style="left:${(t - viewStart) * pxPerMs}px">${fmtClock(t, { h12: !settings.get('clock24') })}</span>`;
     timeline.innerHTML = tl;
-    dayLbl.textContent = fmtDay(focusT);
-    // now line
+    dayBtn.textContent = fmtDay(focusT);
+    // now line + marker on the timeline
     const nowX = (Date.now() - viewStart) * pxPerMs;
-    nowLine.style.display = nowX >= 0 && nowX <= W ? '' : 'none';
+    const showNow = nowX >= 0 && nowX <= W;
+    nowLine.style.display = nowMark.style.display = showNow ? '' : 'none';
     nowLine.style.left = CH_W + nowX + 'px';
+    nowMark.style.left = nowX + 'px';
     // rows
     const st = body.scrollTop, hgt = body.clientHeight;
     const from = Math.max(0, Math.floor(st / ROW_H) - 2), to = Math.min(rows.length - 1, Math.ceil((st + hgt) / ROW_H) + 2);
@@ -97,26 +102,32 @@ export default function guideView(root, { arg, go }) {
       const sel = i === rowIdx;
       html += `<div class="g-row${sel ? ' sel' : ''}${player.isPlaying(ch.id) ? ' playing' : ''}" style="transform:translateY(${i * ROW_H}px)" data-r="${i}">`;
       const num = settings.get('showChannelNumbers') && ch.num ? ch.num : '';
-      html += `<div class="g-ch${isDivider(ch) ? ' divider' : ''}" data-r="${i}" title="${esc(ch.name)}"><span class="lg" data-logo="${i}"></span><span class="g-cht">${num ? `<small>${num}</small>` : ''}<b>${esc(shortName(ch))}</b></span></div><div class="g-progs">`;
+      // big centred logo; channels without one show their name instead
+      html += `<div class="g-ch${isDivider(ch) ? ' divider' : ''}${ch.logo ? ' has-logo' : ''}" data-r="${i}" title="${esc(ch.name)}">${num ? `<small class="g-num">${num}</small>` : ''}${ch.logo ? `<span class="lg" data-logo="${i}"></span>` : `<b>${esc(shortName(ch))}</b>`}</div><div class="g-progs">`;
       const ps = lib.programmes(ch, viewStart, vEnd);
       if (!ps.length) {
         const isSel = sel && fp?.placeholder;
         html += `<div class="g-p empty${isSel ? ' focus' : ''}" style="left:0;width:${W}px" data-r="${i}" data-t="${viewStart}"><span>${isSel ? esc(ch.name) + ' · ' : ''}No information</span></div>`;
       }
+      let first = true;
+      const labelMin = rem(7);
       for (const p of ps) {
         const x = Math.max(0, (p.start - viewStart) * pxPerMs), x2 = Math.min(W, (p.stop - viewStart) * pxPerMs);
+        // the first block of each row also names the channel
+        const chLabel = first && x2 - x > labelMin ? `<span class="g-chl">${esc(shortName(ch))}</span>` : '';
+        first = false;
         const isFocus = sel && fp && !fp.placeholder && p.start === fp.start;
         const live = p.start <= now && p.stop > now, past = p.stop <= now;
         const cu = past && lib.canCatchup(ch, p);
-        const rem = !past && !live && lib.hasReminder(ch, p.start);
+        const remind = !past && !live && lib.hasReminder(ch, p.start);
         html += `<div class="g-p${isFocus ? ' focus' : ''}${live ? ' live' : ''}${past ? ' past' : ''}" style="left:${x}px;width:${Math.max(0, x2 - x)}px" data-r="${i}" data-t="${p.start}">
-          <span class="g-pt">${cu ? icon('rewind', 'cu') : ''}${rem ? icon('bell', 'rem') : ''}${esc(p.title)}</span><span class="g-ps">${fmtClock(p.start)} – ${fmtClock(p.stop)}</span>
+          ${chLabel}<span class="g-pt">${cu ? icon('rewind', 'cu') : ''}${remind ? icon('bell', 'rem') : ''}${esc(p.title)}</span><span class="g-ps">${fmtClock(p.start)} – ${fmtClock(p.stop)}</span>
           ${live ? `<i class="g-prog" style="width:${clamp((now - p.start) / (p.stop - p.start), 0, 1) * 100}%"></i>` : ''}</div>`;
       }
       html += '</div></div>';
     }
     canvas.innerHTML = html;
-    for (const el of canvas.querySelectorAll('[data-logo]')) { const ch = rows[+el.dataset.logo]; el.append(logoEl(ch.logo, ch.name, 'logo sm')); }
+    for (const el of canvas.querySelectorAll('[data-logo]')) { const ch = rows[+el.dataset.logo]; el.append(logoEl(ch.logo, ch.name, 'logo gl')); }
   }
 
   function updateDetail() {
@@ -127,13 +138,15 @@ export default function guideView(root, { arg, go }) {
     const state = live ? '<span class="live-pill">LIVE</span>' : past ? (cu ? '<span class="cu-pill">CATCH-UP</span>' : '<span class="pill">ENDED</span>') : '<span class="pill">UPCOMING</span>';
     const inPreview = player.isPlaying(ch.id) && player.mode === 'preview';
     const action = p.placeholder || live ? (inPreview ? 'Watch fullscreen' : 'Preview channel') : past ? (cu ? 'Play from catch-up' : 'Watch channel live') : (lib.hasReminder(ch, p.start) ? 'Cancel reminder' : 'Set reminder');
+    const left = live ? humanLeft(p.stop - now) : '';
+    const pct = live ? clamp((now - p.start) / (p.stop - p.start), 0, 1) * 100 : 0;
     detail.innerHTML = `
-      <div class="g-d-ch"><span class="lg"></span><span>${settings.get('showChannelNumbers') ? ch.num + ' · ' : ''}${esc(ch.name)}</span></div>
+      <div class="g-d-ch">${settings.get('showChannelNumbers') && ch.num ? ch.num + ' · ' : ''}${esc(ch.name)}</div>
       <h2>${esc(p.title)} ${p.ep ? `<span class="ep">${esc(p.ep)}</span>` : ''}</h2>
-      <div class="row gap wrap">${state}<span class="muted">${fmtDay(p.start)} · ${fmtClock(p.start)} – ${fmtClock(p.stop)} · ${fmtMins((p.stop - p.start) / 60000)}</span>${p.cat ? `<span class="chip">${esc(p.cat)}</span>` : ''}</div>
+      <div class="g-d-time"><b>${fmtClock(p.start)} – ${fmtClock(p.stop)}</b>${live ? `<span>${left}</span>` : `<span>${fmtDay(p.start)} · ${fmtMins((p.stop - p.start) / 60000)}</span>`}${live ? '' : state}${p.cat ? `<span class="chip">${esc(p.cat)}</span>` : ''}</div>
+      ${live ? `<div class="bar g-d-bar"><i style="width:${pct}%"></i></div>` : ''}
       ${p.desc ? `<p class="desc">${esc(p.desc)}</p>` : '<p class="desc muted">No description available.</p>'}
-      <div class="g-hint"><kbd>OK</kbd> ${action}</div>`;
-    detail.querySelector('.lg').append(logoEl(ch.logo, ch.name, 'logo sm'));
+      <div class="g-hint"><kbd>OK</kbd> ${action} &nbsp;·&nbsp; <kbd>◀ ▶</kbd> browse &nbsp;·&nbsp; <kbd>CH±</kbd> page</div>`;
   }
 
   // ------- movement -------
@@ -171,7 +184,7 @@ export default function guideView(root, { arg, go }) {
     }
     after(); return true;
   }
-  function jumpTo(t) { focusT = t; viewStart = floorSlot(t - 30 * 60e3); after(); body.focus(); }
+  function jumpTo(t, keepFocus = false) { focusT = t; viewStart = floorSlot(t - 30 * 60e3); after(); if (!keepFocus) body.focus(); }
   function after() { ensureVisible(); draw(); updateDetail(); schedulePreview(); }
 
   let pvT;
@@ -199,7 +212,7 @@ export default function guideView(root, { arg, go }) {
 
   body.__keys = (k) => {
     switch (k) {
-      case 'up': return moveRow(-1) || (groupBtn.focus(), true);
+      case 'up': return moveRow(-1) || (dayBtn.focus(), true);
       case 'down': return moveRow(1);
       case 'left': return moveH(-1);
       case 'right': return moveH(1);
@@ -212,7 +225,15 @@ export default function guideView(root, { arg, go }) {
     }
     return false;
   };
-  groupBtn.parentElement.__keys = (k) => { if (k === 'down') { body.focus(); return true; } return false; };
+  dayNav.__keys = (k) => {
+    const btns = [...dayNav.children], i = btns.indexOf(document.activeElement);
+    if (k === 'down') { body.focus(); return true; }
+    if (k === 'up') { groupBtn.focus(); return true; }
+    if (k === 'right' && i < btns.length - 1) { btns[i + 1].focus(); return true; }
+    if (k === 'left' && i > 0) { btns[i - 1].focus(); return true; }
+    return false;
+  };
+  groupBtn.__keys = (k) => { if (k === 'down') { dayBtn.focus(); return true; } return false; };
   body.addEventListener('click', (e) => {
     const el = e.target.closest('[data-r]'); if (!el) return;
     const r = +el.dataset.r;
@@ -253,3 +274,9 @@ export default function guideView(root, { arg, go }) {
   };
 }
 function floorSlot(t) { return Math.floor(t / SLOT) * SLOT; }
+/** "1 hour, 33 minutes left" */
+function humanLeft(ms) {
+  const m = Math.max(1, Math.round(ms / 60000)), hrs = Math.floor(m / 60), mins = m % 60;
+  const part = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  return (hrs ? part(hrs, 'hour') + (mins ? ', ' : '') : '') + (mins ? part(mins, 'minute') : '') + ' left';
+}

@@ -1,2 +1,4 @@
-- Sports: team crests and flags on match cards (football clubs and cricket teams)
-- Sports: faster to open and smoother to browse; long sections show 12 matches with "Show all"
+New TV guide layout: preview on the left with full programme details beside it
+Playlist · group switcher at the top right
+‹ Today › day bar: browse other days with the arrows
+Big centred channel logos, channel name on each row's current programme, taller rows
