@@ -1,10 +1,10 @@
 {
-    "versionCode": 26,
-    "versionName": "1.0.25",
+    "versionCode": 27,
+    "versionName": "1.0.26",
     "url": "https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk",
     "notes": [
-        "TV guide: press Left on the programme airing now to open the playlist panel",
-        "Panel: switch playlist, search channels, All channels, Favorites, Recents (this playlist or all playlists) and every group",
-        "Press Left again for the main menu; Right or Back closes the panel"
+        "New Azure theme: bright royal-blue design across the whole app (guide, menus, panels, lists)",
+        "Light-blue highlight for the selected channel and programme",
+        "Prefer the old dark look? Settings \u2192 Appearance \u2192 Theme \u2192 Midnight"
     ]
 }

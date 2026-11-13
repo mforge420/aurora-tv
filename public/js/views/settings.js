@@ -112,7 +112,8 @@ export default function settingsView(root, { go }) {
     },
     appearance: () => [
       h('h2', 'Appearance'),
-      row('Accent', 'Colour used for focus and highlights', h('div.swatches', ACCENTS.map(([k, l]) => h('button.swatch' + (settings.get('accent') === k ? '.on' : ''), { title: l, dataset: { accent: k }, onclick: () => { settings.set('accent', k); draw(); } })))),
+      row('Theme', 'Azure is bright blue; Midnight is dark with your choice of accent', h('div.theme-pick', [['azure', 'Azure'], ['midnight', 'Midnight']].map(([k, l]) => h('button.btn' + (settings.get('theme') === k ? '.primary' : '.ghost'), { dataset: { theme: k }, onclick: () => { settings.set('theme', k); draw(); } }, h('i.theme-dot'), h('span', l))))),
+      settings.get('theme') === 'azure' ? null : row('Accent', 'Colour used for focus and highlights', h('div.swatches', ACCENTS.map(([k, l]) => h('button.swatch' + (settings.get('accent') === k ? '.on' : ''), { title: l, dataset: { accent: k }, onclick: () => { settings.set('accent', k); draw(); } })))),
       row('24-hour clock', null, toggle('clock24')),
       row('Show channel numbers', null, toggle('showChannelNumbers')),
     ],

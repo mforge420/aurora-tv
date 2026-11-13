@@ -103,6 +103,7 @@ function tickClock() {
 
 function applyTheme() {
   document.documentElement.dataset.accent = settings.get('accent');
+  document.documentElement.dataset.theme = settings.get('theme');
   clockCfg.h12 = !settings.get('clock24');
 }
 
@@ -127,6 +128,7 @@ nav.fallback = (k) => {
 async function boot() {
   applyTheme();
   settings.on('change:accent', applyTheme);
+  settings.on('change:theme', applyTheme);
   settings.on('change:clock24', applyTheme);
   buildRail();
   tickClock(); setInterval(tickClock, 10000);

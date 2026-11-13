@@ -1,3 +1,3 @@
-TV guide: press Left on the programme airing now to open the playlist panel
-Panel: switch playlist, search channels, All channels, Favorites, Recents (this playlist or all playlists) and every group
-Press Left again for the main menu; Right or Back closes the panel
+New Azure theme: bright royal-blue design across the whole app (guide, menus, panels, lists)
+Light-blue highlight for the selected channel and programme
+Prefer the old dark look? Settings → Appearance → Theme → Midnight

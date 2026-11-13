@@ -968,3 +968,86 @@ html.native .sp-card:focus { transform: none; box-shadow: 0 0 0 2px var(--accent
 html.g-panel-open:not(.native) #player[data-mode="preview"] { visibility: hidden; }
 /* main menu opened from the panel (Left again): slide the panel over so both sit side by side */
 #rail.expanded ~ #view .g-panel.open { transform: translateX(calc(15.5rem - var(--rail))); }
+
+/* =====================================================================
+   Theme: Azure — bright royal-blue look (default). Midnight = the original dark look.
+   ===================================================================== */
+:root[data-theme="azure"] {
+  --bg: #0b2aa8; --bg-2: #0a2290;
+  --surface: rgba(6, 22, 120, .32);
+  --surface-2: rgba(5, 18, 105, .5);
+  --surface-3: rgba(255, 255, 255, .16);
+  --line: rgba(255, 255, 255, .1);
+  --line-2: rgba(255, 255, 255, .2);
+  --text: #ffffff; --text-2: #d9e4ff; --muted: #a9bdf2;
+  --a1: #6ec6ff; --a2: #8fe3ff; --a3: #a9b8ff;
+  --accent: #6ec6ff; --accent-ink: #04205c;
+  --grad: linear-gradient(120deg, #9fe6ff, #6ec6ff 50%, #b9c6ff);
+  --azure-glass: linear-gradient(165deg, #5c80e6, #1e42cd 48%, #1a5cff);
+  --azure-card: rgba(4, 16, 92, .55);
+}
+:root[data-theme="azure"] body { background: linear-gradient(120deg, #06186e 0%, #0b2fb8 38%, #1a4ff0 72%, #2a6bff 100%) fixed; }
+:root[data-theme="azure"] .aurora-bg i { opacity: .1; background: #9fd8ff; }
+:root[data-theme="azure"] .aurora-bg i:nth-child(2) { background: #0a1670; opacity: .35; }
+:root[data-theme="azure"] .aurora-bg i:nth-child(3) { background: #3d7bff; opacity: .18; }
+
+/* side menu: blue glass tiles */
+:root[data-theme="azure"] #rail { background: linear-gradient(90deg, rgba(8, 26, 120, .75), rgba(8, 26, 120, .35)); }
+:root[data-theme="azure"] #rail.expanded { background: var(--azure-glass); box-shadow: 1.5rem 0 4rem rgba(2, 8, 50, .55); }
+:root[data-theme="azure"] .rail-btn { background: rgba(255,255,255,.07); }
+:root[data-theme="azure"] .rail-btn.active { background: rgba(110, 198, 255, .3); }
+:root[data-theme="azure"] .rail-btn.active .i { color: #fff; }
+:root[data-theme="azure"] .rail-btn:focus { background: #6ec6ff; color: var(--accent-ink); }
+
+/* glass surfaces, dialogs, toasts */
+:root[data-theme="azure"] .glass, :root[data-theme="azure"].native .glass { background: rgba(14, 44, 170, .88); border-color: rgba(255,255,255,.16); }
+:root[data-theme="azure"] .modal { background: var(--azure-glass); border-color: rgba(255,255,255,.18); }
+:root[data-theme="azure"] .modal-wrap, :root[data-theme="azure"].native .modal-wrap { background: rgba(2, 10, 60, .6); }
+:root[data-theme="azure"] .toast { background: rgba(14, 44, 170, .95); }
+
+/* lists (live channels, groups, search, episodes) */
+:root[data-theme="azure"] .vrow:focus::before { background: rgba(110, 198, 255, .3); box-shadow: inset 0 0 0 2px var(--accent), 0 .6rem 2rem rgba(2, 8, 50, .35); }
+:root[data-theme="azure"] .episode:focus, :root[data-theme="azure"] .res-ch:focus, :root[data-theme="azure"] .res-prog:focus { background: rgba(110, 198, 255, .28); }
+:root[data-theme="azure"] .detail-hero::after { background: linear-gradient(transparent 20%, #0b2aa8), linear-gradient(90deg, rgba(6, 24, 110, .7), transparent 60%); }
+
+/* TV guide */
+:root[data-theme="azure"] .g-grid { background: transparent; border-color: transparent; }
+:root[data-theme="azure"] .g-head { background: transparent; border-bottom-color: transparent; }
+:root[data-theme="azure"] .g-corner, :root[data-theme="azure"] .g-timeline span { border-color: transparent; }
+:root[data-theme="azure"] .g-timeline span { font-size: 1rem; font-weight: 700; color: #fff; }
+:root[data-theme="azure"] .g-row { border-bottom: 0; }
+:root[data-theme="azure"] .g-ch { background: rgba(40, 90, 230, .32); border-right-color: transparent; border-bottom: 1px solid rgba(255,255,255,.08); }
+:root[data-theme="azure"] .g-row.sel .g-ch { background: #6ec6ff; background: linear-gradient(90deg, #5fb6ff, #7dd0ff); color: var(--accent-ink); border-radius: 0 .9rem .9rem 0; }
+:root[data-theme="azure"] .g-row.sel .g-ch .g-num, :root[data-theme="azure"] .g-row.sel .g-ch b { color: var(--accent-ink); }
+:root[data-theme="azure"] .g-p { background: rgba(4, 16, 92, .58); border-radius: .9rem; border-left-color: transparent; }
+:root[data-theme="azure"] .g-p.live { background: rgba(60, 120, 255, .38); border-left-color: transparent; }
+:root[data-theme="azure"] .g-p.past { background: rgba(4, 16, 92, .35); }
+:root[data-theme="azure"] .g-p.empty { background: rgba(4, 16, 92, .45); color: var(--text-2); }
+:root[data-theme="azure"] .g-p.focus { background: linear-gradient(90deg, #5fb6ff, #8bd6ff); box-shadow: 0 .4rem 1.6rem rgba(2, 10, 60, .45); }
+:root[data-theme="azure"] .g-body:not(:focus) .g-p.focus { background: rgba(110, 198, 255, .3); box-shadow: inset 0 0 0 2px var(--accent); }
+:root[data-theme="azure"] .g-chl { color: #9fdcff; }
+:root[data-theme="azure"] .g-p.focus .g-chl { color: #0a3a8f; }
+:root[data-theme="azure"] .g-now { background: #9fe6ff; box-shadow: 0 0 10px #9fe6ff; opacity: .7; }
+:root[data-theme="azure"] .g-nowmark { border-top-color: #9fe6ff; }
+:root[data-theme="azure"] .g-d-ch { color: #fff; }
+:root[data-theme="azure"] .g-daybtn { background: rgba(110, 198, 255, .85); color: var(--accent-ink); }
+:root[data-theme="azure"] .g-daybtn:focus { background: #fff; box-shadow: 0 0 0 3px #6ec6ff; }
+:root[data-theme="azure"] .g-panel { background: var(--azure-glass); border-color: rgba(255,255,255,.18); box-shadow: 1.5rem 0 4rem rgba(2, 8, 50, .5); }
+:root[data-theme="azure"] .gp-item.on { background: rgba(255,255,255,.18); }
+:root[data-theme="azure"] .gp-item:focus { background: #2f80ff; color: #fff; box-shadow: 0 .4rem 1.4rem rgba(2, 10, 60, .35); }
+:root[data-theme="azure"] .g-panel .gp-sec { color: #9fe6ff; }
+
+/* live OSD / recents / sports cards */
+:root[data-theme="azure"] .osd-act { background: rgba(20, 60, 200, .8); }
+:root[data-theme="azure"] .rec-card { background: rgba(20, 60, 200, .7); }
+:root[data-theme="azure"] .rec-card:focus { background: rgba(110, 198, 255, .45); }
+:root[data-theme="azure"] .sp-card { background: var(--azure-card); }
+
+/* theme picker in Settings */
+.theme-pick { display: flex; gap: .6rem; }
+.theme-dot { width: 1rem; height: 1rem; border-radius: 50%; display: inline-block; }
+[data-theme="azure"] > .theme-dot { background: linear-gradient(135deg, #0b2fb8, #2a6bff 60%, #6ec6ff); }
+[data-theme="midnight"] > .theme-dot { background: linear-gradient(135deg, #06070c, #1d2140 60%, #8b9cff); }
+:root[data-theme="azure"] .poster:focus .pt { color: #fff; }
+:root[data-theme="azure"] .poster:focus .art { box-shadow: 0 0 0 3px #fff, 0 1.2rem 2.6rem rgba(2, 10, 60, .55); }
+:root[data-theme="azure"].native .poster:focus .art { box-shadow: 0 0 0 3px #fff; }

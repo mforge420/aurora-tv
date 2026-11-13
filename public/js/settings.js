@@ -1,6 +1,7 @@
 import { store, Emitter } from './util.js';
 
 const DEFAULTS = {
+  theme: 'azure',            // azure (bright blue) | midnight (dark, uses accent)
   accent: 'aurora',          // aurora | ocean | sunset | emerald | rose | mono
   clock24: true,
   proxyMode: 'auto',         // auto | always | never
