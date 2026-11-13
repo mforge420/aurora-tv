@@ -1,9 +1,9 @@
 {
-    "versionCode": 23,
-    "versionName": "1.0.22",
+    "versionCode": 24,
+    "versionName": "1.0.23",
     "url": "https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk",
     "notes": [
-        "Series: each episode shows its own picture again (the app no longer asks TMDB for an image size that doesn't exist)",
-        "Series: episode descriptions and durations are read from more provider formats"
+        "Sports: team crests and flags on match cards (football clubs and cricket teams)",
+        "Sports: faster to open and smoother to browse; long sections show 12 matches with \"Show all\""
     ]
 }

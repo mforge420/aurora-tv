@@ -860,3 +860,17 @@ html.native .mv-tile.filled { background: transparent; }
 html.native .mv-tile video { display: none; }
 html.native .mv-tile.filled .mv-state:empty { display: none; }
 @media (max-width: 800px) { .pick-cols { grid-template-columns: 1fr; } .pick-groups { display: none; } }
+
+/* sports hub: crests, show-more, lighter focus */
+.sp-crests { display: flex; align-items: center; gap: .6rem; margin: .1rem 0 .15rem; }
+.sp-side { flex: 1; display: flex; align-items: center; gap: .5rem; min-width: 0; }
+.sp-side:last-child { flex-direction: row-reverse; text-align: right; }
+.sp-side b { font-size: .84rem; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sp-crest { width: 2.3rem; height: 2.3rem; object-fit: contain; flex: none; filter: drop-shadow(0 1px 3px rgba(0,0,0,.5)); }
+.sp-crest.ph { border-radius: 50%; background: var(--surface-3); }
+.sp-v { font-size: .78rem; font-weight: 800; color: var(--muted); }
+.sp-more { align-items: center; justify-content: center; text-align: center; gap: .3rem; min-height: 6rem; }
+.sp-more::before { display: none; }
+.sp-card { contain: layout paint style; }
+html.native .sp-card { transition: none; }
+html.native .sp-card:focus { transform: none; box-shadow: 0 0 0 2px var(--accent); }

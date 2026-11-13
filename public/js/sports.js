@@ -17,6 +17,7 @@ const NOT_FOOTBALL = /\b(rugby|nfl|american football|afl|aussie rules|gaelic|fut
 const NOT_F1 = /\b(moto ?gp|formula ?e|formula ?[234]|f[234]\b|indycar|nascar|superbikes?|wec|le mans|w series|karting|speedway|greyhound|horse)\b/i;
 // Studio shows, highlights and replays: hidden unless the user asks for them
 const REPLAY = /\b(highlights?|review|reloaded|rewind|classics?|replay|best of|preview|magazine|news|podcast|documentary|countdown|build[- ]?up|reaction|weekly|round[- ]?up|goals? of|extra time show|show\b|talk|analysis|archive|retro|delayed|tape|encore|repeat|focus|soccer am|match of the day|motd|sportscentre|sports ?centre|sportsday|transfer|draw|press conference|paddock|chequered flag|pit ?lane|inside line|stumped|tailenders)\b/i;
+const ANY_SPORT = /football|soccer|futbol|fútbol|league|liga|serie a|bundesliga|ligue|cup|epl|mls|copa|cricket|test|odi|t20|ipl|bbl|hundred|ashes|formula|grand prix|\bf1\b|\bv\b|\bvs\b/i;
 const EVENTISH = /\b(v|vs\.?|versus|live|race|qualifying|practice|sprint|fp[123]|test|day \d|innings|final|semi|quarter|match|grand prix|derby)\b/i;
 const LIVE_WORD = /(^|\W)(live|en vivo|en directo|ao vivo|direct)(\W|$)/i;
 const EVENT_GROUP = /\b(events?|ppv|pay ?per ?view|live sports?|matchday|match ?centre|match ?center|fixtures?)\b/i;
@@ -59,9 +60,19 @@ export async function findSportsEvents() {
     // programmes; event channels are handled separately (their guide is usually filler).
     const isEventCh = EVENT_GROUP.test(ch.group) || /\b(v|vs\.?)\b/i.test(ch.name);
     const chSport = isEventCh ? null : sportOf(chText);
-    for (const p of lib.programmes(ch, from, to)) {
-      if (p.stop <= now) continue;
-      const text = `${p.title} ${p.cat || ''} ${p.ep || ''}`;
+    const a = lib.epgIndex.get(ch.id);
+    if (!a) continue;
+    const sh = lib.shift();
+    for (let k = 0; k < a.length; k += 6) {
+      const stop = a[k + 1] + sh;
+      if (stop <= now) continue;
+      const start = a[k] + sh;
+      if (start >= to) break;
+      const title = a[k + 2] || '', cat = a[k + 4] || '', epn = a[k + 5] || '';
+      const text = `${title} ${cat} ${epn}`;
+      // cheap pre-check before the full classifier (most programmes aren't sport)
+      if (!chSport && !ANY_SPORT.test(text) && !(a[k + 3] && EVENTISH.test(title))) continue;
+      const p = { start, stop, title, desc: a[k + 3], cat, ep: epn };
       let sport = sportOf(text);
       // fall back to the description, then to a sport-specific channel name
       if (isEventCh && !sportOf(text)) continue;
@@ -77,7 +88,7 @@ export async function findSportsEvents() {
       }
       if (!ev.channels.includes(ch)) ev.channels.push(ch);
     }
-    if (i % 250 === 249) await new Promise((r) => setTimeout(r));
+    if (i % 400 === 399) await new Promise((r) => setTimeout(r));
   }
   // "Event" channels: the fixture is in the channel name itself
   const eventChannels = [];

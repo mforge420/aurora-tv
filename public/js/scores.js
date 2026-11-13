@@ -2,6 +2,7 @@
 // Unofficial API: everything here fails soft — no scores is never an error.
 import { fetchJSON } from './net.js';
 import { settings } from './settings.js';
+import { store } from './util.js';
 
 const SITE = 'https://site.api.espn.com/apis/site/v2/sports';
 const HEADER = 'https://site.web.api.espn.com/apis/v2/scoreboard/header?sport=';
@@ -80,7 +81,7 @@ function fromHeader(d, sport) {
       state: fs.type?.state || e.status, clock: fs.type?.shortDetail || e.summary || '',
       note: sport === 'cricket' ? (fs.summary || e.summary || '') : '',
       teams: (e.competitors || []).sort((a, b) => (a.homeAway === 'home' ? -1 : 1) - (b.homeAway === 'home' ? -1 : 1)).map((c) => ({
-        names: [c.displayName, c.name, c.location, c.shortDisplayName].filter(Boolean),
+        names: (learnCrest(sport, [c.displayName, c.name, c.location, c.shortDisplayName], c.logo), [c.displayName, c.name, c.location, c.shortDisplayName].filter(Boolean)),
         short: c.abbreviation || c.name || c.displayName, label: c.shortDisplayName || c.displayName, score: c.score ?? '',
       })),
     });
@@ -185,4 +186,64 @@ export async function scoreForProgramme(sport, prog) {
   if (!sport || !prog) return null;
   const ev = { key: 'p', sport, title: prog.title, sub: `${prog.cat || ''} ${prog.ep || ''}`, start: prog.start, stop: prog.stop };
   return (await scoresFor([ev])).get('p') || null;
+}
+
+// ---------------------------------------------------------------- team crests
+// Football: ESPN league team lists (cached a week). Cricket: national-team ids
+// (verified against ESPN's images) plus logos learned from live scoreboards.
+const CRICKET_IDS = { england: 1, australia: 2, 'south africa': 3, 'west indies': 4, 'new zealand': 5, india: 6, pakistan: 7, 'sri lanka': 8, zimbabwe: 9, bangladesh: 25, ireland: 29, afghanistan: 40 };
+const DEFAULT_LEAGUES = ['eng.1', 'esp.1', 'ita.1', 'ger.1', 'fra.1', 'uefa.champions', 'eng.2', 'sco.1', 'por.1', 'ned.1', 'usa.1', 'ksa.1'];
+let learned = store.get('crests', {});
+function learnCrest(sport, names, logo) {
+  if (sport !== 'cricket' || !logo) return;
+  for (const n of names) if (n) learned[canonTeam(n)] = logo;
+  clearTimeout(learnCrest.t); learnCrest.t = setTimeout(() => store.set('crests', learned), 2000);
+}
+const canonTeam = (n) => canon(String(n).replace(/\b(women'?s?|men'?s?|under[- ]?\d+s?|u\d{2}s?|a team|xi)\b/gi, ' '));
+
+const teamLists = new Map();
+async function leagueTeams(slug) {
+  if (teamLists.has(slug)) return teamLists.get(slug);
+  const cached = store.get('teams:' + slug);
+  if (cached && Date.now() - cached.at < 7 * 864e5) { teamLists.set(slug, cached.teams); return cached.teams; }
+  const p = fetchJSON(`${SITE}/soccer/${slug}/teams`).then((d) => {
+    const teams = (d?.sports?.[0]?.leagues?.[0]?.teams || []).map(({ team: t }) => ({
+      names: [t.displayName, t.shortDisplayName, t.name, t.location, t.abbreviation].filter(Boolean),
+      logo: t.logos?.[0]?.href || '',
+    })).filter((t) => t.logo);
+    store.set('teams:' + slug, { at: Date.now(), teams });
+    return teams;
+  }).catch(() => []);
+  teamLists.set(slug, p);
+  return p;
+}
+
+const crestMemo = new Map();
+/** { home: url|null, away: url|null, names: [a, b] } for a sports-hub event, or null */
+export async function crestsFor(ev) {
+  if (ev.sport === 'f1') return null;
+  const names = teamsFromTitle(ev.title);
+  if (!names) return null;
+  const key = ev.sport + '|' + names.join('|');
+  // cricket lookups are local (no network) and improve as scoreboards teach us logos: don't memoise
+  if (ev.sport !== 'cricket' && crestMemo.has(key)) return crestMemo.get(key);
+  const job = (async () => {
+    let logos;
+    if (ev.sport === 'cricket') {
+      logos = names.map((n) => { const c = canonTeam(n); return learned[c] || (CRICKET_IDS[c] ? `https://a.espncdn.com/i/teamlogos/cricket/500/${CRICKET_IDS[c]}.png` : null); });
+    } else {
+      const hay = `${ev.title} ${ev.sub || ''}`;
+      const lg = LEAGUES.find(([re]) => re.test(hay));
+      const slugs = lg ? [lg[1], ...DEFAULT_LEAGUES.filter((s) => s !== lg[1])] : DEFAULT_LEAGUES;
+      logos = [null, null];
+      for (const slug of slugs) {
+        const teams = await leagueTeams(slug);
+        names.forEach((n, i) => { if (!logos[i]) logos[i] = teams.find((t) => teamMatches(n, t, false))?.logo || null; });
+        if (logos[0] && logos[1]) break;
+      }
+    }
+    return logos[0] || logos[1] ? { home: logos[0], away: logos[1], names } : null;
+  })();
+  crestMemo.set(key, job);
+  return job;
 }

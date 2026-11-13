@@ -5,13 +5,17 @@ import { settings } from '../settings.js';
 import { icon, toast, choose, spinner } from '../ui.js';
 import { nav } from '../nav.js';
 import { SPORTS, findSportsEvents } from '../sports.js';
-import { scoresFor, scoresEnabled } from '../scores.js';
+import { scoresFor, scoresEnabled, crestsFor } from '../scores.js';
+import { imgUrl } from '../util.js';
 
 export default function sportsView(root) {
   let filter = store.get('sportsFilter', 'all');
   let showReplays = store.get('sportsReplays', false);
   let data = null;
   let scores = new Map();
+  const crests = new Map();          // event key -> crest info (or null)
+  const expanded = new Set();        // sections the user asked to see in full
+  const CAP = 12;
 
   const chips = h('div.sp-chips', { 'data-navgroup': '' });
   const body = h('div.sp-body', spinner('Finding matches in your TV guide…'));
@@ -48,15 +52,35 @@ export default function sportsView(root) {
     const el = h('button.sp-card' + (live ? '.live' : ''), { dataset: { ekey: e.key }, onclick: () => open(e) },
       h('div.sp-top', { html: `<span class="sp-sport">${icon(s.icon)}${esc(s.label)}</span><span class="sp-when">${when}</span>` }),
       h('div.sp-title', e.title),
+      crestEl(crests.get(e.key)),
       scoreEl(scores.get(e.key)),
       e.sub ? h('div.sp-sub', e.sub) : null,
       live && !e.eventChannel ? h('div.bar', h('i', { style: { width: clamp((now - e.start) / (e.stop - e.start), 0, 1) * 100 + '%' } })) : null,
       h('div.sp-ch', logoEl(ch.logo, ch.name, 'logo sm'), h('span', ch.name), e.channels.length > 1 ? h('small', `+${e.channels.length - 1} more`) : null),
     );
     el.style.setProperty('--sport', s.color); // custom properties need setProperty
+    el.__ev = e;
     return el;
   }
 
+  function crestEl(c) {
+    if (!c) return null;
+    const one = (logo, name) => h('span.sp-side', logo ? h('img.sp-crest', { src: imgUrl(logo, 96), alt: '', decoding: 'async', referrerpolicy: 'no-referrer', onerror: (ev) => ev.target.remove() }) : h('span.sp-crest.ph'), h('b', name));
+    return h('div.sp-crests', one(c.home, c.names[0]), h('span.sp-v', 'v'), one(c.away, c.names[1]));
+  }
+  /** Look up crests for the cards on screen and patch them in (doesn't block drawing) */
+  let crestRun = 0;
+  async function loadCrests() {
+    const run = ++crestRun;
+    for (const el of body.querySelectorAll('.sp-card')) {
+      if (run !== crestRun) return;
+      const e = el.__ev;
+      if (!e || crests.has(e.key)) continue;
+      const c = await crestsFor(e).catch(() => null);
+      crests.set(e.key, c);
+      if (c && el.isConnected && !el.querySelector('.sp-crests')) el.querySelector('.sp-title').after(crestEl(c));
+    }
+  }
   function scoreEl(sc) {
     if (!sc) return null;
     const pill = sc.clock ? `<span class="sp-clock${sc.state === 'post' ? ' ft' : ''}">${esc(sc.clock)}</span>` : '';
@@ -80,6 +104,10 @@ export default function sportsView(root) {
     if (!evs.length) return;
     scoreBusy = true;
     try { scores = await scoresFor(evs); } finally { scoreBusy = false; }
+    // live scoreboards also teach us team logos (e.g. domestic cricket): retry cards without crests
+    let retry = false;
+    for (const e of evs) if (e.sport === 'cricket' && crests.get(e.key) === null) { crests.delete(e.key); retry = true; }
+    if (retry) loadCrests();
     for (const el of body.querySelectorAll('.sp-card')) {
       const sc = scores.get(el.dataset.ekey);
       const old = el.querySelector('.sp-score');
@@ -121,9 +149,13 @@ export default function sportsView(root) {
     }
   }
 
-  function section(title, list, cls = '') {
+  function section(title, list, cls = '', always = false) {
     if (!list.length) return null;
-    return h('section.sp-sec' + cls, h('h3', title, h('small', String(list.length))), h('div.sp-grid', { 'data-navgroup': '' }, list.map(card)));
+    const full = always || expanded.has(title) || list.length <= CAP + 2;
+    const shown = full ? list : list.slice(0, CAP);
+    const more = full ? null : h('button.sp-card.sp-more', { onclick: () => { expanded.add(title); draw(); body.querySelector(`[data-sec="${title}"] .sp-card:nth-child(${CAP + 1})`)?.focus(); } },
+      h('b', `Show all ${list.length}`), h('small.muted', `${list.length - CAP} more ${title.toLowerCase()}`));
+    return h('section.sp-sec' + cls, { dataset: { sec: title } }, h('h3', title, h('small', String(list.length))), h('div.sp-grid', { 'data-navgroup': '' }, shown.map(card), more));
   }
 
   function draw() {
@@ -134,15 +166,15 @@ export default function sportsView(root) {
     const dayEnd = (d) => new Date(new Date(now).setHours(24 * d, 0, 0, 0)).getTime();
     const progs = evs.filter((e) => !e.eventChannel);
     const groups = [
-      ['Live now', progs.filter((e) => e.start <= now && e.stop > now), '.live-sec'],
-      ['Event channels', evs.filter((e) => e.eventChannel), ''],
+      ['Live now', progs.filter((e) => e.start <= now && e.stop > now), '.live-sec', true],
+      ['Event channels', evs.filter((e) => e.eventChannel), '', true],
       ['Starting soon', progs.filter((e) => e.start > now && e.start <= now + 3 * 3600e3), ''],
       ['Later today', progs.filter((e) => e.start > now + 3 * 3600e3 && e.start < dayEnd(1)), ''],
       ['Tomorrow', progs.filter((e) => e.start >= dayEnd(1) && e.start < dayEnd(2)), ''],
       ['This week', progs.filter((e) => e.start >= dayEnd(2)), ''],
     ];
     const focusedKey = document.activeElement?.closest?.('.sp-card')?.dataset.key;
-    const secs = groups.map(([t, l, c]) => section(t, l, c)).filter(Boolean);
+    const secs = groups.map(([t, l, c, a]) => section(t, l, c, a)).filter(Boolean);
     if (!secs.length) {
       const noGuide = !lib.epgIndex.size;
       body.replaceChildren(h('div.empty-state', { html: `${icon('trophy')}<b>${noGuide ? 'No TV guide yet' : 'No matches found'}</b><span>${noGuide
@@ -154,6 +186,7 @@ export default function sportsView(root) {
     // keep keys for focus restore
     body.querySelectorAll('.sp-card').forEach((el, i) => { el.dataset.key = i; });
     if (focusedKey != null) body.querySelector(`.sp-card[data-key="${focusedKey}"]`)?.focus({ preventScroll: true });
+    loadCrests();
   }
 
   async function load() {
