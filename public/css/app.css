@@ -933,3 +933,38 @@ html.native .sp-card:focus { transform: none; box-shadow: 0 0 0 2px var(--accent
   .g-corner, .g-ch { width: 7rem; }
   .g-ch .logo.gl { width: 4.6rem; height: 2.6rem; }
 }
+
+/* ---------- Guide: playlist panel (Left on the current programme) ---------- */
+.guide-layout { position: relative; }
+.g-panel {
+  position: absolute; z-index: 30; top: 0; bottom: 0; left: 0; width: min(24rem, 86vw);
+  display: flex; flex-direction: column; gap: .15rem; padding: 1.1rem .8rem 1.4rem; overflow-y: auto; scrollbar-width: none;
+  border-radius: var(--r-lg); border: 1px solid var(--line-2);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--a1) 22%, #12152a), #0c0e1c 60%, color-mix(in srgb, var(--a3) 12%, #0c0e1c));
+  box-shadow: 1.5rem 0 4rem rgba(0, 0, 0, .55);
+  transform: translateX(-108%); opacity: 0; visibility: hidden;
+  transition: transform .22s var(--ease), opacity .18s, visibility 0s .22s;
+}
+.g-panel.open { transform: none; opacity: 1; visibility: visible; transition: transform .22s var(--ease), opacity .18s; }
+.g-panel::-webkit-scrollbar { display: none; }
+.g-panel small { display: block; padding: .2rem .9rem; font-size: .78rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--text-2); }
+.g-panel .gp-sec { margin-top: .2rem; color: var(--accent); }
+.g-panel hr { border: 0; border-top: 1px solid var(--line-2); margin: .55rem .6rem; }
+.gp-item {
+  display: flex; align-items: center; gap: .7rem; width: 100%; flex: none; min-height: 2.9rem; padding: .45rem .9rem;
+  border-radius: .8rem; border: 0; background: transparent; color: var(--text); text-align: left;
+  font-size: 1.05rem; font-weight: 700; text-transform: uppercase; letter-spacing: .01em;
+}
+.gp-item span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gp-item i { display: inline-flex; flex: none; }
+.gp-item i .i, .gp-item i svg { width: 1.15rem; height: 1.15rem; }
+.gp-item.on { background: var(--surface-3); }
+.gp-item:focus, .gp-item:hover { outline: none; background: var(--accent); color: var(--accent-ink); }
+.gp-pl { text-transform: none; font-size: 1.25rem; }
+.gp-pl .ud { color: var(--muted); }
+.gp-search { text-transform: none; font-weight: 600; color: var(--text-2); }
+.gp-search i { width: 2rem; height: 2rem; border-radius: 50%; background: var(--surface-3); align-items: center; justify-content: center; }
+/* browser build: the video layer floats above the page, so hide it while the panel covers it (native video sits underneath) */
+html.g-panel-open:not(.native) #player[data-mode="preview"] { visibility: hidden; }
+/* main menu opened from the panel (Left again): slide the panel over so both sit side by side */
+#rail.expanded ~ #view .g-panel.open { transform: translateX(calc(15.5rem - var(--rail))); }

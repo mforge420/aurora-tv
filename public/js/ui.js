@@ -13,6 +13,7 @@ const P = {
   play: '<path d="M7 4.5v15l12.5-7.5z" fill="currentColor"/>',
   pause: '<rect x="6" y="4.5" width="4" height="15" rx="1" fill="currentColor"/><rect x="14" y="4.5" width="4" height="15" rx="1" fill="currentColor"/>',
   back: '<path d="m15 18-6-6 6-6"/>',
+  updown: '<path d="m7 9 5-5 5 5M7 15l5 5 5-5"/>',
   fwd: '<path d="m9 18 6-6-6-6"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   x: '<path d="M18 6 6 18M6 6l12 12"/>',

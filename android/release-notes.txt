@@ -1,4 +1,3 @@
-New TV guide layout: preview on the left with full programme details beside it
-Playlist · group switcher at the top right
-‹ Today › day bar: browse other days with the arrows
-Big centred channel logos, channel name on each row's current programme, taller rows
+TV guide: press Left on the programme airing now to open the playlist panel
+Panel: switch playlist, search channels, All channels, Favorites, Recents (this playlist or all playlists) and every group
+Press Left again for the main menu; Right or Back closes the panel

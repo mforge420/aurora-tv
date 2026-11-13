@@ -9,6 +9,8 @@ import { Xtream } from './xtream.js';
 export const FAV_GROUP = '★ Favorites';
 export const RECENT_GROUP = '⟲ Recently watched';
 export const ALL_GROUP = 'All channels';
+export const FAV_ALL_GROUP = '★ Favorites · all playlists';
+export const RECENT_ALL_GROUP = '⟲ Recents · all playlists';
 
 class Library extends Emitter {
   sources = store.get('sources', []);
@@ -213,7 +215,9 @@ class Library extends Emitter {
 
   channelsIn(group) {
     if (group === FAV_GROUP) return this.live.filter((c) => this.favs.has(c.id));
-    if (group === RECENT_GROUP) return this.recentChannels(40);
+    if (group === RECENT_GROUP) return this.recentChannels(40).filter((c) => this.byId.has(c.id));
+    if (group === FAV_ALL_GROUP) return [...this.favs].map((id) => this.findChannel(id)).filter((c) => c && c.num !== undefined);
+    if (group === RECENT_ALL_GROUP) return this.recentChannels(40);
     if (group === ALL_GROUP || !group) return this.live;
     return this.live.filter((c) => c.group === group);
   }

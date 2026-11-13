@@ -1,11 +1,10 @@
 {
-    "versionCode": 25,
-    "versionName": "1.0.24",
+    "versionCode": 26,
+    "versionName": "1.0.25",
     "url": "https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk",
     "notes": [
-        "New TV guide layout: preview on the left with full programme details beside it",
-        "Playlist \u00b7 group switcher at the top right",
-        "\u2039 Today \u203a day bar: browse other days with the arrows",
-        "Big centred channel logos, channel name on each row's current programme, taller rows"
+        "TV guide: press Left on the programme airing now to open the playlist panel",
+        "Panel: switch playlist, search channels, All channels, Favorites, Recents (this playlist or all playlists) and every group",
+        "Press Left again for the main menu; Right or Back closes the panel"
     ]
 }

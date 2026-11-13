@@ -1,8 +1,9 @@
 import { h, esc, logoEl, fmtClock, fmtDay, fmtMins, clamp, store, rem, shortName, isDivider } from '../util.js';
-import { lib, FAV_GROUP, RECENT_GROUP, ALL_GROUP } from '../library.js';
+import { lib, FAV_GROUP, RECENT_GROUP, ALL_GROUP, FAV_ALL_GROUP, RECENT_ALL_GROUP } from '../library.js';
 import { player } from '../player.js';
 import { settings } from '../settings.js';
-import { icon, toast, choose } from '../ui.js';
+import { icon, toast } from '../ui.js';
+import { pickPlaylist } from '../app.js';
 
 const SLOT = 30 * 60e3;
 let ROW_H = 68, CH_W = 236;
@@ -23,7 +24,7 @@ export default function guideView(root, { arg, go }) {
     h('div.preview-ph', { html: `${icon('tv')}<span>Preview</span>` }));
   const detail = h('div.g-detail');
   // playlist · group (top-right of the details) — press to switch group
-  const groupBtn = h('button.g-group', { onclick: pickGroup });
+  const groupBtn = h('button.g-group', { onclick: () => openPanel() });
   // day switcher above the channel column: ‹ Today ›
   const dayBtn = h('button.g-daybtn', { onclick: () => jumpTo(Date.now(), true) });
   const dayNav = h('div.g-daynav',
@@ -37,7 +38,9 @@ export default function guideView(root, { arg, go }) {
   const nowLine = h('div.g-now');
   body.append(canvas);
   const grid = h('div.g-grid', h('div.g-head', h('div.g-corner', dayNav), h('div.g-tl-wrap', timeline, nowMark)), body, nowLine);
-  root.append(h('div.guide-layout', h('div.g-top', slot, h('div.g-info', groupBtn, detail)), grid));
+  // playlist panel: Left on the current programme slides it in, Left again opens the main menu
+  const panel = h('div.g-panel', { dataset: { navgroup: '' } });
+  root.append(h('div.guide-layout', h('div.g-top', slot, h('div.g-info', groupBtn, detail)), grid, panel));
 
   // ------- data -------
   function setGroup(g, keepChannel) {
@@ -51,12 +54,60 @@ export default function guideView(root, { arg, go }) {
     body.scrollTop = Math.max(0, rowIdx * ROW_H - body.clientHeight / 2);
     draw(); updateDetail();
   }
-  async function pickGroup() {
-    const opts = [FAV_GROUP, RECENT_GROUP, ALL_GROUP, ...lib.liveGroups.map((g) => g.name)].map((g) => ({ id: g, label: g, active: g === group }));
-    const c = await choose('Channel group', opts);
-    if (c) setGroup(c.id);
-    body.focus();
+  const label = (g) => g.replace(/^[★⟲] /, '');
+  function buildPanel() {
+    const multi = lib.sources.length > 1;
+    const item = (g, text = label(g)) => h('button.gp-item' + (g === group ? '.on' : ''), { dataset: { g }, onclick: () => { setGroup(g); closePanel(); } },
+      h('span', text), g === group ? h('i', { html: icon('check') }) : null);
+    const groups = lib.liveGroups.map((g) => item(g.name));
+    panel.replaceChildren(
+      h('div.gp-head', h('small', 'Playlist'),
+        h('button.gp-item.gp-pl', { onclick: () => (multi ? pickPlaylist() : null) },
+          h('i', { html: icon('list') }), h('span', lib.activeName() || 'Playlist'), multi ? h('i.ud', { html: icon('updown') }) : null)),
+      h('button.gp-item.gp-search', { onclick: () => go('search') }, h('i', { html: icon('search') }), h('span', 'Search channels')),
+      h('hr'),
+      item(ALL_GROUP),
+      ...(multi ? [item(FAV_ALL_GROUP, 'Favorites · all playlists')] : []),
+      item(FAV_GROUP),
+      ...(multi ? [item(RECENT_ALL_GROUP, 'Recents · all playlists')] : []),
+      item(RECENT_GROUP, 'Recents'),
+      h('hr'),
+      h('small.gp-sec', lib.activeName() || 'Groups'),
+      ...groups,
+    );
   }
+  function openPanel() {
+    buildPanel();
+    panel.classList.add('open');
+    document.documentElement.classList.add('g-panel-open');
+    panel.scrollTop = 0;
+    const on = panel.querySelector('.gp-item.on') || panel.querySelector('.gp-item');
+    on.focus({ preventScroll: true });
+    if (on.offsetTop + on.offsetHeight > panel.clientHeight) panel.scrollTop = on.offsetTop - panel.clientHeight / 2;
+  }
+  function closePanel(focusBody = true) {
+    panel.classList.remove('open');
+    document.documentElement.classList.remove('g-panel-open');
+    if (focusBody) body.focus({ preventScroll: true });
+  }
+  const railEl = document.getElementById('rail');
+  panel.addEventListener('focusout', (e) => {
+    const to = e.relatedTarget;
+    if (to && !panel.contains(to) && !railEl?.contains(to)) closePanel(false);
+  });
+  panel.__keys = (k) => {
+    const btns = [...panel.querySelectorAll('.gp-item')];
+    const i = btns.indexOf(document.activeElement);
+    if (k === 'up' || k === 'down' || k === 'chup' || k === 'chdown') {
+      const step = { up: -1, down: 1, chup: -8, chdown: 8 }[k];
+      const n = btns[clamp(i + step, 0, btns.length - 1)];
+      if (n) { n.focus({ preventScroll: true }); n.scrollIntoView({ block: 'nearest' }); }
+      return true;
+    }
+    if (k === 'left') { (railEl?.querySelector('.rail-btn.active') || railEl?.querySelector('.rail-btn'))?.focus(); return true; }
+    if (k === 'right') { closePanel(); return true; }
+    return false;
+  };
 
   function progAt(ch, t) {
     const ps = lib.programmes(ch, t - 1, t + 1);
@@ -146,7 +197,7 @@ export default function guideView(root, { arg, go }) {
       <div class="g-d-time"><b>${fmtClock(p.start)} – ${fmtClock(p.stop)}</b>${live ? `<span>${left}</span>` : `<span>${fmtDay(p.start)} · ${fmtMins((p.stop - p.start) / 60000)}</span>`}${live ? '' : state}${p.cat ? `<span class="chip">${esc(p.cat)}</span>` : ''}</div>
       ${live ? `<div class="bar g-d-bar"><i style="width:${pct}%"></i></div>` : ''}
       ${p.desc ? `<p class="desc">${esc(p.desc)}</p>` : '<p class="desc muted">No description available.</p>'}
-      <div class="g-hint"><kbd>OK</kbd> ${action} &nbsp;·&nbsp; <kbd>◀ ▶</kbd> browse &nbsp;·&nbsp; <kbd>CH±</kbd> page</div>`;
+      <div class="g-hint"><kbd>OK</kbd> ${action} &nbsp;·&nbsp; ${live ? '<kbd>◀</kbd> groups &nbsp;·&nbsp; <kbd>▶</kbd> browse' : '<kbd>◀ ▶</kbd> browse'} &nbsp;·&nbsp; <kbd>CH±</kbd> page</div>`;
   }
 
   // ------- movement -------
@@ -214,7 +265,12 @@ export default function guideView(root, { arg, go }) {
     switch (k) {
       case 'up': return moveRow(-1) || (dayBtn.focus(), true);
       case 'down': return moveRow(1);
-      case 'left': return moveH(-1);
+      case 'left': {
+        // on the programme airing now (or at the far left), Left opens the playlist panel
+        const p = focusedProg(), now = Date.now();
+        if ((p && p.start <= now && p.stop > now) || !moveH(-1)) openPanel();
+        return true;
+      }
       case 'right': return moveH(1);
       case 'chup': moveRow(-Math.max(1, Math.floor(body.clientHeight / ROW_H) - 1)); return true;
       case 'chdown': moveRow(Math.max(1, Math.floor(body.clientHeight / ROW_H) - 1)); return true;
@@ -264,13 +320,14 @@ export default function guideView(root, { arg, go }) {
   player.onExit = () => { const i = rows.findIndex((c) => c.id === player.item?.id); if (i > -1) rowIdx = i; focusT = Date.now(); after(); body.focus(); };
 
   return {
-    focus: () => body.focus({ preventScroll: true }),
+    focus: () => (panel.classList.contains('open') ? (panel.querySelector('.gp-item.on') || panel.querySelector('.gp-item')).focus() : body.focus({ preventScroll: true })),
     back: () => {
+      if (panel.classList.contains('open')) { closePanel(); return true; }
       if (player.mode === 'preview') { player.stop(); draw(); return true; }
       if (Math.abs(focusT - Date.now()) > SLOT) { jumpTo(Date.now()); return true; }
       return false;
     },
-    destroy: () => { clearInterval(tick); clearTimeout(pvT); ro.disconnect(); offEpg(); window.removeEventListener('player-change', onPl); player.onExit = null; },
+    destroy: () => { document.documentElement.classList.remove('g-panel-open'); clearInterval(tick); clearTimeout(pvT); ro.disconnect(); offEpg(); window.removeEventListener('player-change', onPl); player.onExit = null; },
   };
 }
 function floorSlot(t) { return Math.floor(t / SLOT) * SLOT; }
