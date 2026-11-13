@@ -104,6 +104,7 @@ function tickClock() {
 function applyTheme() {
   document.documentElement.dataset.accent = settings.get('accent');
   document.documentElement.dataset.theme = settings.get('theme');
+  try { window.AuroraNative?.setBackdrop?.(settings.get('theme')); } catch {}
   clockCfg.h12 = !settings.get('clock24');
 }
 

@@ -986,7 +986,8 @@ html.g-panel-open:not(.native) #player[data-mode="preview"] { visibility: hidden
   --azure-glass: linear-gradient(165deg, #5c80e6, #1e42cd 48%, #1a5cff);
   --azure-card: rgba(4, 16, 92, .55);
 }
-:root[data-theme="azure"] body { background: linear-gradient(120deg, #06186e 0%, #0b2fb8 38%, #1a4ff0 72%, #2a6bff 100%) fixed; }
+:root[data-theme="azure"]:not(.native) body { background: linear-gradient(120deg, #06186e 0%, #0b2fb8 38%, #1a4ff0 72%, #2a6bff 100%) fixed; }
+:root[data-theme="azure"].native .aurora-bg { display: none; }
 :root[data-theme="azure"] .aurora-bg i { opacity: .1; background: #9fd8ff; }
 :root[data-theme="azure"] .aurora-bg i:nth-child(2) { background: #0a1670; opacity: .35; }
 :root[data-theme="azure"] .aurora-bg i:nth-child(3) { background: #3d7bff; opacity: .18; }

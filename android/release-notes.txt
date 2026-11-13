@@ -1,3 +1,1 @@
-New Azure theme: bright royal-blue design across the whole app (guide, menus, panels, lists)
-Light-blue highlight for the selected channel and programme
-Prefer the old dark look? Settings → Appearance → Theme → Midnight
+Fix: video was hidden behind the new blue background (sound only) — the blue backdrop is now drawn behind the video

@@ -7,6 +7,7 @@ import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.graphics.Rect
 import android.net.Uri
 import android.os.Build
@@ -88,6 +89,12 @@ class MainActivity : ComponentActivity() {
     }
 
     @SuppressLint("SetJavaScriptEnabled")
+    private fun backdrop(theme: String) = when (theme) {
+        "midnight" -> GradientDrawable().apply { setColor(Color.parseColor("#06070C")) }
+        else -> GradientDrawable(GradientDrawable.Orientation.TL_BR,
+            intArrayOf(Color.parseColor("#06186E"), Color.parseColor("#0B2FB8"), Color.parseColor("#1A4FF0"), Color.parseColor("#2A6BFF")))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED)
@@ -95,7 +102,7 @@ class MainActivity : ComponentActivity() {
         server = LocalServer(applicationContext)
         updater = Updater(this) { data -> emitToWeb("update", data) }
 
-        root = FrameLayout(this).apply { setBackgroundColor(Color.parseColor("#06070C")) }
+        root = FrameLayout(this).apply { background = backdrop("azure") }
 
         // Video surface lives *under* the transparent WebView UI.
         playerView = PlayerView(this).apply {
@@ -286,6 +293,8 @@ class MainActivity : ComponentActivity() {
 
     // ------------------------------------------------------------------ JS bridge
     inner class Bridge {
+        /** The app background is painted natively, behind the video, so the page itself stays transparent. */
+        @JavascriptInterface fun setBackdrop(theme: String) = runOnUiThread { root.background = backdrop(theme) }
         @JavascriptInterface fun version(): String = BuildConfig.VERSION_NAME
         @JavascriptInterface fun deviceModel(): String = "${Build.MANUFACTURER} ${Build.MODEL}".trim()
         @JavascriptInterface fun isTv(): Boolean = packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)

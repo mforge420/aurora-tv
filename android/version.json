@@ -1,10 +1,8 @@
 {
-    "versionCode": 27,
-    "versionName": "1.0.26",
+    "versionCode": 28,
+    "versionName": "1.0.27",
     "url": "https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk",
     "notes": [
-        "New Azure theme: bright royal-blue design across the whole app (guide, menus, panels, lists)",
-        "Light-blue highlight for the selected channel and programme",
-        "Prefer the old dark look? Settings \u2192 Appearance \u2192 Theme \u2192 Midnight"
+        "Fix: video was hidden behind the new blue background (sound only) \u2014 the blue backdrop is now drawn behind the video"
     ]
 }
