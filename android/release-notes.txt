@@ -1,1 +1,3 @@
-Fix: video was hidden behind the new blue background (sound only) — the blue backdrop is now drawn behind the video
+TV guide: the selected row now stays in the middle of the screen as you scroll (row 3 of 5)
+Guide rows sized so 5 whole rows always fit
+Channel logos always scale to fit their space — no more cropping or overflow

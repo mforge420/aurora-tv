@@ -1,8 +1,10 @@
 {
-    "versionCode": 28,
-    "versionName": "1.0.27",
+    "versionCode": 29,
+    "versionName": "1.0.28",
     "url": "https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk",
     "notes": [
-        "Fix: video was hidden behind the new blue background (sound only) \u2014 the blue backdrop is now drawn behind the video"
+        "TV guide: the selected row now stays in the middle of the screen as you scroll (row 3 of 5)",
+        "Guide rows sized so 5 whole rows always fit",
+        "Channel logos always scale to fit their space \u2014 no more cropping or overflow"
     ]
 }

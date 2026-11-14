@@ -51,7 +51,7 @@ export default function guideView(root, { arg, go }) {
     groupBtn.innerHTML = `<span>${esc(pl + group.replace(/^[★⟲] /, ''))}</span>${icon('list')}`;
     canvas.style.height = rows.length * ROW_H + 'px';
     if (keepChannel) { const i = rows.findIndex((c) => c.id === keepChannel); rowIdx = i > -1 ? i : 0; } else rowIdx = 0;
-    body.scrollTop = Math.max(0, rowIdx * ROW_H - body.clientHeight / 2);
+    fitH = 0; fitRows(); centerRow();
     draw(); updateDetail();
   }
   const label = (g) => g.replace(/^[★⟲] /, '');
@@ -124,7 +124,7 @@ export default function guideView(root, { arg, go }) {
   let raf = 0;
   const schedule = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; draw(); }); };
   body.addEventListener('scroll', schedule, { passive: true });
-  new ResizeObserver(schedule).observe(body);
+  new ResizeObserver(() => { fitRows(); schedule(); }).observe(body);
 
   function draw() {
     const W = body.clientWidth - CH_W;
@@ -151,7 +151,7 @@ export default function guideView(root, { arg, go }) {
     for (let i = from; i <= to; i++) {
       const ch = rows[i];
       const sel = i === rowIdx;
-      html += `<div class="g-row${sel ? ' sel' : ''}${player.isPlaying(ch.id) ? ' playing' : ''}" style="transform:translateY(${i * ROW_H}px)" data-r="${i}">`;
+      html += `<div class="g-row${sel ? ' sel' : ''}${player.isPlaying(ch.id) ? ' playing' : ''}" style="height:${ROW_H}px;transform:translateY(${i * ROW_H}px)" data-r="${i}">`;
       const num = settings.get('showChannelNumbers') && ch.num ? ch.num : '';
       // big centred logo; channels without one show their name instead
       html += `<div class="g-ch${isDivider(ch) ? ' divider' : ''}${ch.logo ? ' has-logo' : ''}" data-r="${i}" title="${esc(ch.name)}">${num ? `<small class="g-num">${num}</small>` : ''}${ch.logo ? `<span class="lg" data-logo="${i}"></span>` : `<b>${esc(shortName(ch))}</b>`}</div><div class="g-progs">`;
@@ -208,9 +208,28 @@ export default function guideView(root, { arg, go }) {
     if (ps < viewStart || focusT < viewStart) viewStart = floorSlot(Math.max(ps, focusT - sp + SLOT, minT()));
     if (focusT >= viewStart + sp) viewStart = floorSlot(focusT - sp / 3);
     if (p && p.start >= viewStart + sp) viewStart = floorSlot(p.start);
-    const top = rowIdx * ROW_H, h = body.clientHeight;
-    if (top < body.scrollTop) body.scrollTop = top;
-    else if (top + ROW_H > body.scrollTop + h) body.scrollTop = top + ROW_H - h;
+    centerRow();
+  }
+  /** keep the selected row in the middle (row 3 of 5); clamps at the top and bottom of the list */
+  function centerRow() {
+    const h = body.clientHeight;
+    body.scrollTop = clamp(rowIdx * ROW_H - (h - ROW_H) / 2, 0, Math.max(0, rows.length * ROW_H - h));
+  }
+  /** size rows so an odd number of whole rows fills the grid (selected row exactly centred) */
+  let fitH = 0;
+  function fitRows() {
+    const h = body.clientHeight;
+    if (!h || Math.abs(h - fitH) < 2) return false;
+    fitH = h;
+    // aim for 5 rows (like the reference); more on tall screens, 3 only when space is very tight
+    const base = rem(4.6);
+    let n = Math.round(h / base);
+    if (n % 2 === 0) n += h / base > n ? 1 : -1;
+    n = Math.max(h / 5 >= rem(3.4) ? 5 : 3, n);
+    ROW_H = h / n;
+    canvas.style.height = rows.length * ROW_H + 'px';
+    centerRow();
+    return true;
   }
   function moveRow(d) {
     const ni = clamp(rowIdx + d, 0, rows.length - 1);
