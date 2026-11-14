@@ -109,15 +109,30 @@ export default function guideView(root, { arg, go }) {
     return false;
   };
 
-  function progAt(ch, t) {
-    const ps = lib.programmes(ch, t - 1, t + 1);
-    return ps.find((p) => p.start <= t && p.stop > t) || null;
+  /**
+   * Programmes for a channel between from..to, with every gap (no EPG at all, or holes between
+   * programmes) filled by one-hour "No information" blocks aligned to the clock hour.
+   */
+  function blocksFor(ch, from, to) {
+    const A = floorHour(from), B = nextHour(to - 1);
+    const ps = lib.programmes(ch, A - 6 * 3600e3, B + 6 * 3600e3).slice().sort((a, b) => a.start - b.start);
+    const out = [];
+    const gaps = (a, b) => { for (let t = a; t < b;) { const e = Math.min(b, nextHour(t)); out.push({ start: t, stop: e, title: 'No information', placeholder: true }); t = e; } };
+    let cur = A;
+    for (const p of ps) {
+      if (p.stop <= cur) continue;
+      if (cur >= B) break;
+      if (p.start > cur) gaps(cur, Math.min(p.start, B));
+      out.push(p); cur = Math.max(cur, p.stop);
+    }
+    if (cur < B) gaps(cur, B);
+    return out.filter((b) => b.stop > from && b.start < to);
   }
-  /** Focused item: a programme, or a 30-minute placeholder block for channels without EPG */
+  function progAt(ch, t) { return blocksFor(ch, t, t + 1).find((b) => b.start <= t && b.stop > t) || null; }
+  /** Focused item: a programme, or a one-hour placeholder block for times without EPG */
   function focusedProg() {
     const ch = rows[rowIdx];
-    if (!ch) return null;
-    return progAt(ch, focusT) || { start: floorSlot(focusT), stop: floorSlot(focusT) + SLOT, title: ch.name, placeholder: true };
+    return ch ? progAt(ch, focusT) : null;
   }
 
   // ------- rendering -------
@@ -155,11 +170,7 @@ export default function guideView(root, { arg, go }) {
       const num = settings.get('showChannelNumbers') && ch.num ? ch.num : '';
       // big centred logo; channels without one show their name instead
       html += `<div class="g-ch${isDivider(ch) ? ' divider' : ''}${ch.logo ? ' has-logo' : ''}" data-r="${i}" title="${esc(ch.name)}">${num ? `<small class="g-num">${num}</small>` : ''}${ch.logo ? `<span class="lg" data-logo="${i}"></span>` : `<b>${esc(shortName(ch))}</b>`}</div><div class="g-progs">`;
-      const ps = lib.programmes(ch, viewStart, vEnd);
-      if (!ps.length) {
-        const isSel = sel && fp?.placeholder;
-        html += `<div class="g-p empty${isSel ? ' focus' : ''}" style="left:0;width:${W}px" data-r="${i}" data-t="${viewStart}"><span>${isSel ? esc(ch.name) + ' · ' : ''}No information</span></div>`;
-      }
+      const ps = blocksFor(ch, viewStart, vEnd);
       let first = true;
       const labelMin = rem(7);
       for (const p of ps) {
@@ -167,11 +178,11 @@ export default function guideView(root, { arg, go }) {
         // the first block of each row also names the channel
         const chLabel = first && x2 - x > labelMin ? `<span class="g-chl">${esc(shortName(ch))}</span>` : '';
         first = false;
-        const isFocus = sel && fp && !fp.placeholder && p.start === fp.start;
+        const isFocus = sel && fp && p.start === fp.start;
         const live = p.start <= now && p.stop > now, past = p.stop <= now;
         const cu = past && lib.canCatchup(ch, p);
         const remind = !past && !live && lib.hasReminder(ch, p.start);
-        html += `<div class="g-p${isFocus ? ' focus' : ''}${live ? ' live' : ''}${past ? ' past' : ''}" style="left:${x}px;width:${Math.max(0, x2 - x)}px" data-r="${i}" data-t="${p.start}">
+        html += `<div class="g-p${p.placeholder ? ' empty' : ''}${isFocus ? ' focus' : ''}${live ? ' live' : ''}${past ? ' past' : ''}" style="left:${x}px;width:${Math.max(0, x2 - x)}px" data-r="${i}" data-t="${p.start}">
           ${chLabel}<span class="g-pt">${cu ? icon('rewind', 'cu') : ''}${remind ? icon('bell', 'rem') : ''}${esc(p.title)}</span><span class="g-ps">${fmtClock(p.start)} – ${fmtClock(p.stop)}</span>
           ${live ? `<i class="g-prog" style="width:${clamp((now - p.start) / (p.stop - p.start), 0, 1) * 100}%"></i>` : ''}</div>`;
       }
@@ -350,6 +361,9 @@ export default function guideView(root, { arg, go }) {
   };
 }
 function floorSlot(t) { return Math.floor(t / SLOT) * SLOT; }
+/** local clock hour boundaries (works for half-hour time zones too) */
+function floorHour(t) { const d = new Date(t); d.setMinutes(0, 0, 0); return d.getTime(); }
+function nextHour(t) { return floorHour(t) + 3600e3 > t ? floorHour(t) + 3600e3 : floorHour(t + 3600e3); }
 /** "1 hour, 33 minutes left" */
 function humanLeft(ms) {
   const m = Math.max(1, Math.round(ms / 60000)), hrs = Math.floor(m / 60), mins = m % 60;

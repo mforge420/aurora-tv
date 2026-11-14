@@ -1,8 +1,8 @@
 {
-    "versionCode": 30,
-    "versionName": "1.0.29",
+    "versionCode": 31,
+    "versionName": "1.0.30",
     "url": "https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk",
     "notes": [
-        "TV guide: channels without a logo (or whose logo fails to load) now show the channel name instead of initials"
+        "TV guide: channels (or gaps) with no guide data now show hourly \"No information\" blocks, e.g. 7:00 \u2013 8:00, that you can step through with \u25c0 \u25b6"
     ]
 }

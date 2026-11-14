@@ -1,1 +1,1 @@
-TV guide: channels without a logo (or whose logo fails to load) now show the channel name instead of initials
+TV guide: channels (or gaps) with no guide data now show hourly "No information" blocks, e.g. 7:00 – 8:00, that you can step through with ◀ ▶
