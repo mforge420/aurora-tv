@@ -1065,3 +1065,8 @@ html.g-panel-open:not(.native) #player[data-mode="preview"] { visibility: hidden
 /* compact block text so channel label + title + time always fit the (5-row) height */
 .g-p { padding: .2rem .75rem; gap: .08rem; justify-content: center; }
 .g-p .g-chl, .g-p .g-pt, .g-p .g-ps { line-height: 1.18; flex: none; }
+/* guide: channel name in place of a missing / broken logo */
+.g-ch .logo.gl.name-only { background: transparent !important; width: 100%; max-width: none; }
+.logo-name { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; text-align: center; font-size: .95rem; font-weight: 750; line-height: 1.2; color: var(--text); text-transform: uppercase; }
+.g-row.sel .logo-name { color: var(--accent-ink); }
+.g-ch > b { text-transform: uppercase; }

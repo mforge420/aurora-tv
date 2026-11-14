@@ -1,10 +1,8 @@
 {
-    "versionCode": 29,
-    "versionName": "1.0.28",
+    "versionCode": 30,
+    "versionName": "1.0.29",
     "url": "https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk",
     "notes": [
-        "TV guide: the selected row now stays in the middle of the screen as you scroll (row 3 of 5)",
-        "Guide rows sized so 5 whole rows always fit",
-        "Channel logos always scale to fit their space \u2014 no more cropping or overflow"
+        "TV guide: channels without a logo (or whose logo fails to load) now show the channel name instead of initials"
     ]
 }

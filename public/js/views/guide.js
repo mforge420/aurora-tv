@@ -178,7 +178,7 @@ export default function guideView(root, { arg, go }) {
       html += '</div></div>';
     }
     canvas.innerHTML = html;
-    for (const el of canvas.querySelectorAll('[data-logo]')) { const ch = rows[+el.dataset.logo]; el.append(logoEl(ch.logo, ch.name, 'logo gl')); }
+    for (const el of canvas.querySelectorAll('[data-logo]')) { const ch = rows[+el.dataset.logo]; el.append(logoEl(ch.logo, ch.name, 'logo gl', { text: shortName(ch) })); }
   }
 
   function updateDetail() {

@@ -116,17 +116,19 @@ export function imgUrl(src, width = 0) {
 const logoState = new Map();
 
 /** Logo element with graceful fallback */
-export function logoEl(src, name, cls = 'logo') {
-  const el = h('div', { class: cls, style: { background: nameGradient(name) } }, h('span', initials(name)));
+export function logoEl(src, name, cls = 'logo', { text = false } = {}) {
+  // text: show the channel name (not initials) when there is no usable logo
+  const fallback = () => (text ? h('b.logo-name', typeof text === 'string' ? text : name) : h('span', initials(name)));
+  const el = text ? h('div', { class: cls + ' name-only' }) : h('div', { class: cls, style: { background: nameGradient(name) } }, fallback());
   const url = imgUrl(src, 200);
-  if (!url || logoState.get(url) === false) return el;
+  if (!url || logoState.get(url) === false) { if (text) el.append(fallback()); return el; }
   const img = new Image();
   img.decoding = 'async'; img.alt = '';
   img.referrerPolicy = 'no-referrer';
-  const show = () => { el.style.background = ''; el.classList.add('has-img'); el.replaceChildren(img); };
+  const show = () => { el.style.background = ''; el.classList.remove('name-only'); el.classList.add('has-img'); el.replaceChildren(img); };
   if (logoState.get(url) === true) { img.src = url; show(); return el; }
   img.onload = () => { if (logoState.size > 4000) logoState.clear(); logoState.set(url, true); show(); };
-  img.onerror = () => logoState.set(url, false);
+  img.onerror = () => { logoState.set(url, false); if (text && !el.classList.contains('has-img')) el.replaceChildren(fallback()); };
   img.src = url;
   return el;
 }
