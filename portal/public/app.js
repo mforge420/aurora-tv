@@ -283,6 +283,7 @@ async function libraryView() {
 async function categoriesView(id) {
   let C = await api(`/api/library/${id}/categories`);
   let kind = 'live', q = '';
+  let show = (() => { try { return localStorage.getItem('lt-cat-filter') || 'all'; } catch { return 'all'; } })(); // all | on | off
   const KINDS = [['live', 'Live TV'], ['movies', 'Movies'], ['series', 'Series']];
   const hidden = {}, order = {};
   for (const [k] of KINDS) { hidden[k] = new Set(C.hidden?.[k] || []); order[k] = [...(C.order?.[k] || [])]; }
@@ -321,28 +322,42 @@ async function categoriesView(id) {
     const shown = total - [...hidden[kind]].filter((n) => provider(kind).includes(n)).length;
     return `${shown} of ${total} shown` + (q ? ` · ${visible().length} match` : '');
   };
-  const visible = () => { const ql = q.toLowerCase(); return ordered(kind).filter((n) => !ql || n.toLowerCase().includes(ql)); };
+  const visible = () => {
+    const ql = q.toLowerCase();
+    return ordered(kind).filter((n) => (!ql || n.toLowerCase().includes(ql)) && (show === 'all' || (show === 'on') !== hidden[kind].has(n)));
+  };
+  /** a new order for the visible (filtered) categories, merged back into the full list:
+      the visible ones fill their own slots, everything else keeps its place */
+  const mergeVisible = (newVisible) => {
+    const vis = new Set(newVisible), it = newVisible[Symbol.iterator]();
+    return ordered(kind).map((n) => (vis.has(n) ? it.next().value : n));
+  };
 
   const drawList = () => {
     const box = document.getElementById('cats');
-    const names = visible(), canMove = !q;
-    box.classList.toggle('no-move', !canMove);
+    const names = visible(), canMove = true, full = ordered(kind);
+    drawSeg();
     box.innerHTML = names.length ? names.map((n, i) => `<div class="cat ${hidden[kind].has(n) ? 'off' : ''}" data-n="${esc(n)}">
-        ${canMove ? `<span class="grip" title="Drag to move" aria-hidden="true">⋮⋮</span>` : ''}<span class="num">${canMove ? i + 1 : ''}</span>
+        ${canMove ? `<span class="grip" title="Drag to move" aria-hidden="true">⋮⋮</span>` : ''}<span class="num">${full.indexOf(n) + 1}</span>
         <span class="cname">${esc(n)}</span>
         ${canMove ? `<button class="mv" data-mv="-1" title="Move up" ${i === 0 ? 'disabled' : ''}>▲</button><button class="mv" data-mv="1" title="Move down" ${i === names.length - 1 ? 'disabled' : ''}>▼</button>` : ''}
         <input type="checkbox" class="sw" title="Show on TVs" ${hidden[kind].has(n) ? '' : 'checked'}></div>`).join('')
-      : `<p class="muted" style="padding:18px 4px">${q ? 'No categories match.' : 'No categories of this kind.'}</p>`;
+      : `<p class="muted" style="padding:18px 4px">${q ? 'No categories match.' : show === 'off' ? 'Nothing is hidden here.' : show === 'on' ? 'Every category here is hidden.' : 'No categories of this kind.'}</p>`;
     document.getElementById('count').textContent = countText();
     document.getElementById('sortstate').textContent = isCustom(kind) ? 'Custom order' : 'Provider order';
     for (const row of box.querySelectorAll('.cat')) {
       const n = row.dataset.n;
       const sw = row.querySelector('.sw');
-      sw.onchange = () => { sw.checked ? hidden[kind].delete(n) : hidden[kind].add(n); row.classList.toggle('off', !sw.checked); saveLater('hidden'); drawTabs(); document.getElementById('count').textContent = countText(); };
+      sw.onchange = () => {
+        sw.checked ? hidden[kind].delete(n) : hidden[kind].add(n); row.classList.toggle('off', !sw.checked); saveLater('hidden'); drawTabs(); drawSeg();
+        document.getElementById('count').textContent = countText();
+        // in the Shown / Hidden views the row leaves the list (after a short beat so the switch is seen)
+        if (show !== 'all') { row.classList.add('leaving'); setTimeout(drawList, 350); }
+      };
       for (const b of row.querySelectorAll('.mv')) b.onclick = () => {
-        const list = ordered(kind), i = list.indexOf(n), j = i + Number(b.dataset.mv);
+        const list = visible(), i = list.indexOf(n), j = i + Number(b.dataset.mv);
         if (j < 0 || j >= list.length) return;
-        [list[i], list[j]] = [list[j], list[i]]; setOrder(list); drawList();
+        [list[i], list[j]] = [list[j], list[i]]; setOrder(mergeVisible(list)); drawList();
         box.querySelector(`.cat[data-n="${CSS.escape(n)}"] .mv[data-mv="${b.dataset.mv}"]`)?.focus();
       };
       const grip = row.querySelector('.grip');
@@ -364,11 +379,18 @@ async function categoriesView(id) {
     const up = () => {
       removeEventListener('pointermove', move); removeEventListener('pointerup', up); removeEventListener('pointercancel', up);
       row.classList.remove('dragging'); box.classList.remove('is-dragging');
-      const names = [...box.querySelectorAll('.cat')].map((r) => r.dataset.n);
+      const names = mergeVisible([...box.querySelectorAll('.cat')].map((r) => r.dataset.n));
       if (names.join('\n') !== ordered(kind).join('\n')) setOrder(names);
       drawList();
     };
     addEventListener('pointermove', move); addEventListener('pointerup', up); addEventListener('pointercancel', up);
+  };
+  const drawSeg = () => {
+    const el = document.getElementById('seg'); if (!el) return;
+    const all = ordered(kind), off = all.filter((n) => hidden[kind].has(n)).length;
+    const opts = [['all', 'All', all.length], ['on', 'Shown', all.length - off], ['off', 'Hidden', off]];
+    el.innerHTML = opts.map(([k, l, n]) => `<button type="button" data-show="${k}" class="${k === show ? 'on' : ''}">${l} <b>${n}</b></button>`).join('');
+    for (const b of el.querySelectorAll('button')) b.onclick = () => { show = b.dataset.show; try { localStorage.setItem('lt-cat-filter', show); } catch {} drawList(); };
   };
   const drawTabs = () => { for (const [k] of KINDS) { const el = document.querySelector(`[data-k="${k}"] em`); if (el) el.textContent = hidden[k].size ? `${hidden[k].size} hidden` : ''; } };
   const src = () => !C.categories ? '' : C.source === 'provider' ? `From the provider · ${ago(C.at)}` : `Read from ${esc(String(C.source || '').replace(/^tv:/, ''))} · ${ago(C.at)}`;
@@ -380,9 +402,10 @@ async function categoriesView(id) {
       <div class="card sec">
         <div class="tabs cat-tabs">${KINDS.map(([k, l]) => `<button type="button" data-k="${k}" class="${k === kind ? 'on' : ''}">${l} <em></em></button>`).join('')}</div>
         ${C.categories ? `<div class="cat-tools"><input class="in" id="q" placeholder="Search categories" value="${esc(q)}"><button class="btn sm" id="all">Show all</button><button class="btn sm" id="none">Hide all</button></div>
+          <div class="cat-tools"><span class="small muted">Show:</span><div class="seg" id="seg"></div></div>
           <div class="cat-tools sort"><span class="small muted">Sort:</span><button class="btn sm ghost" id="az">A → Z</button><button class="btn sm ghost" id="za">Z → A</button><button class="btn sm ghost" id="prov">Provider order</button><span class="small muted" id="sortstate"></span></div>
           <div class="cat-meta"><span id="count" class="small muted"></span><span class="small muted">${src()}</span></div>
-          <p class="small muted hint-move">Drag <b>⋮⋮</b> or use ▲ ▼ to move a category.${''}</p>
+          <p class="small muted hint-move">Drag <b>⋮⋮</b> or use ▲ ▼ to move a category.</p>
           <div id="cats" class="cats"></div>`
         : `<div class="empty" id="nocats">${I.list}<h2>Loading categories…</h2><p class="muted" id="nocatsmsg" style="margin-top:6px"></p></div>`}
         <p class="small" id="savestate" style="margin-top:12px;color:var(--ok)"></p>
@@ -392,8 +415,7 @@ async function categoriesView(id) {
     document.getElementById('reload').onclick = () => fetchCats(true);
     if (!C.categories) return;
     const qi = document.getElementById('q');
-    qi.oninput = () => { q = qi.value; document.querySelector('.hint-move').hidden = !!q; drawList(); };
-    document.querySelector('.hint-move').hidden = !!q;
+    qi.oninput = () => { q = qi.value; drawList(); };
     const bulk = (show) => { for (const n of visible()) show ? hidden[kind].delete(n) : hidden[kind].add(n); drawList(); drawTabs(); saveLater('hidden'); };
     document.getElementById('all').onclick = () => bulk(true);
     document.getElementById('none').onclick = () => { if (confirm(q ? `Hide the ${visible().length} matching categories?` : `Hide every ${KINDS.find((k) => k[0] === kind)[1]} category?`)) bulk(false); };

@@ -118,3 +118,11 @@ label.f span span { display: inline; font-weight: 500; }
 .hint-move { margin: 4px 2px 8px; }
 @media (max-width: 820px) { .cat .num { display: none; } .mv { width: 34px; height: 34px; } }
 .cat.off .grip, .cat.off .num { text-decoration: none; }
+/* Show: All / Shown / Hidden */
+.cat-tools + .cat-tools { margin-top: 10px; }
+.seg { display: inline-flex; gap: 4px; padding: 4px; border-radius: 11px; background: var(--s); border: 1px solid var(--line); }
+.seg button { height: 32px; padding: 0 12px; border: 0; border-radius: 8px; background: none; color: var(--m); font-weight: 600; font-size: 13px; cursor: pointer; }
+.seg button b { font-weight: 700; margin-left: 3px; color: var(--t2); font-variant-numeric: tabular-nums; }
+.seg button.on { background: var(--s3); color: var(--t); }
+.seg button:hover:not(.on) { color: var(--t); }
+.cat.leaving { opacity: .35; transition: opacity .3s; }
