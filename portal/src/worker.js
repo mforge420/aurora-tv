@@ -91,8 +91,60 @@ async function handleAuth(req, env, path) {
   return json({ ok: true }, 200, { 'set-cookie': sessionCookie(token, maxAge) });
 }
 
+
+// ------------------------------------------------------------------ schema / migration
+// v2: one shared playlist library, assigned to any number of TVs. Old per-TV playlists are
+// migrated on first use; identical logins on several TVs merge into one library playlist and
+// the old ids are kept as aliases so TVs relink without reloading (favourites survive).
+let schemaReady = null;
+function ensureSchema(env) {
+  return (schemaReady ||= (async () => {
+    await env.DB.batch([
+      env.DB.prepare(`CREATE TABLE IF NOT EXISTS library (id TEXT PRIMARY KEY, name TEXT, type TEXT NOT NULL, server TEXT, user TEXT, pass TEXT,
+        url TEXT, epg_url TEXT, hidden TEXT, categories TEXT, cat_source TEXT, cat_at INTEGER, created INTEGER NOT NULL, updated INTEGER NOT NULL)`),
+      env.DB.prepare('CREATE TABLE IF NOT EXISTS assign (playlist_id TEXT NOT NULL, device_id TEXT NOT NULL, PRIMARY KEY (playlist_id, device_id))'),
+      env.DB.prepare('CREATE INDEX IF NOT EXISTS assign_device ON assign (device_id)'),
+      env.DB.prepare('CREATE TABLE IF NOT EXISTS aliases (old_id TEXT PRIMARY KEY, playlist_id TEXT NOT NULL)'),
+      env.DB.prepare('CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)'),
+    ]);
+    const v = await env.DB.prepare("SELECT v FROM meta WHERE k = 'schema'").first();
+    if (v?.v === '2') return;
+    const old = (await env.DB.prepare('SELECT * FROM playlists ORDER BY updated').all().catch(() => ({ results: [] }))).results;
+    const lib = (await env.DB.prepare('SELECT * FROM library').all()).results;
+    const stmts = [];
+    for (const o of old) {
+      const twin = lib.find((l) => sameLogin(l, o));
+      if (twin) {
+        stmts.push(env.DB.prepare('INSERT OR IGNORE INTO assign (playlist_id, device_id) VALUES (?, ?)').bind(twin.id, o.device_id));
+        stmts.push(env.DB.prepare('INSERT OR REPLACE INTO aliases (old_id, playlist_id) VALUES (?, ?)').bind(o.id, twin.id));
+      } else {
+        lib.push(o);
+        stmts.push(env.DB.prepare('INSERT INTO library (id, name, type, server, user, pass, url, epg_url, hidden, created, updated) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+          .bind(o.id, o.name, o.type, o.server, o.user, o.pass, o.url, o.epg_url, '{}', o.updated, o.updated));
+        stmts.push(env.DB.prepare('INSERT OR IGNORE INTO assign (playlist_id, device_id) VALUES (?, ?)').bind(o.id, o.device_id));
+      }
+    }
+    if (old.length) stmts.push(env.DB.prepare('DELETE FROM playlists'));
+    stmts.push(env.DB.prepare("INSERT OR REPLACE INTO meta (k, v) VALUES ('schema', '2')"));
+    await env.DB.batch(stmts);
+  })().catch((e) => { schemaReady = null; throw e; }));
+}
+const normServer = (s) => String(s || '').trim().toLowerCase().replace(/\/+$/, '').replace(/^https?:\/\//, '');
+function sameLogin(a, b) {
+  if (a.type !== b.type) return false;
+  if (a.type === 'xtream') return normServer(a.server) === normServer(b.server) && (a.user || '') === (b.user || '') && (a.pass || '') === (b.pass || '');
+  return String(a.url || '').trim() === String(b.url || '').trim();
+}
+const parseJson = (s, d) => { try { return s ? JSON.parse(s) : d; } catch { return d; } };
+function cleanHidden(h) {
+  const out = {};
+  for (const k of ['live', 'movies', 'series']) out[k] = [...new Set((Array.isArray(h?.[k]) ? h[k] : []).map((x) => str(x, 200)).filter(Boolean))].slice(0, 5000);
+  return out;
+}
+const hiddenCount = (h) => (h.live?.length || 0) + (h.movies?.length || 0) + (h.series?.length || 0);
+
 // ------------------------------------------------------------------ admin API
-const PL_FIELDS = (p) => ({ id: p.id, name: p.name, type: p.type, server: p.server, user: p.user, pass: p.pass, url: p.url, epgUrl: p.epg_url, updated: p.updated });
+const PL_FIELDS = (p) => ({ id: p.id, name: p.name, type: p.type, server: p.server, user: p.user, pass: p.pass, url: p.url, epgUrl: p.epg_url, updated: p.updated, hidden: cleanHidden(parseJson(p.hidden, {})) });
 function validatePlaylist(b) {
   const type = b.type === 'm3u' ? 'm3u' : 'xtream';
   const p = { type, name: str(b.name, 80), server: '', user: '', pass: '', url: '', epg_url: str(b.epgUrl, 1000) };
@@ -107,6 +159,34 @@ function validatePlaylist(b) {
   return [p, null];
 }
 
+async function assignStmts(env, playlistId, devices) {
+  if (!Array.isArray(devices)) return [];
+  const valid = new Set((await env.DB.prepare('SELECT id FROM devices WHERE claimed = 1').all()).results.map((d) => d.id));
+  return [
+    env.DB.prepare('DELETE FROM assign WHERE playlist_id = ?').bind(playlistId),
+    ...[...new Set(devices.map((x) => str(x, 40)))].filter((id) => valid.has(id))
+      .map((id) => env.DB.prepare('INSERT INTO assign (playlist_id, device_id) VALUES (?, ?)').bind(playlistId, id)),
+  ];
+}
+/** Xtream category names straight from the provider (small JSON, no streams are opened) */
+async function providerCategories(p) {
+  let base = String(p.server || '').trim().replace(/\/+$/, '');
+  if (!/^https?:\/\//i.test(base)) base = 'http://' + base;
+  const q = `username=${encodeURIComponent(p.user)}&password=${encodeURIComponent(p.pass)}`;
+  const get = async (action) => {
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 12000);
+    try {
+      const r = await fetch(`${base}/player_api.php?${q}&action=${action}`, { signal: ctl.signal, headers: { 'user-agent': 'Lumora TV' } });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const j = await r.json();
+      if (!Array.isArray(j)) throw new Error('unexpected reply');
+      return j.map((c) => str(c.category_name, 200)).filter(Boolean);
+    } catch (e) { throw new Error(e.name === 'AbortError' ? 'timed out' : e.message); } finally { clearTimeout(t); }
+  };
+  const [live, movies, series] = await Promise.all([get('get_live_categories'), get('get_vod_categories'), get('get_series_categories')]);
+  return { live, movies, series };
+}
+
 async function handleAdmin(req, env, path) {
   if (!(await adminSession(req, env))) return err(401, 'Not signed in');
   const m = req.method;
@@ -118,15 +198,104 @@ async function handleAdmin(req, env, path) {
   let r;
   if (path === '/api/devices' && m === 'GET') {
     const devs = (await env.DB.prepare('SELECT * FROM devices WHERE claimed = 1 ORDER BY name').all()).results;
-    const pls = (await env.DB.prepare('SELECT * FROM playlists').all()).results;
+    const pls = (await env.DB.prepare('SELECT * FROM library ORDER BY name').all()).results;
+    const asg = (await env.DB.prepare('SELECT * FROM assign').all()).results;
     return json({
       now: now(),
       devices: devs.map((d) => ({
         id: d.id, name: d.name, lastSeen: d.last_seen, appVersion: d.app_version, model: d.model,
         nowPlaying: d.now_playing, report: d.report ? JSON.parse(d.report) : null,
-        playlists: pls.filter((p) => p.device_id === d.id).map(PL_FIELDS),
+        playlists: pls.filter((p) => asg.some((a) => a.playlist_id === p.id && a.device_id === d.id)).map(PL_FIELDS),
       })),
     });
+  }
+  // ---- shared playlist library
+  if (path === '/api/library' && m === 'GET') {
+    const pls = (await env.DB.prepare('SELECT * FROM library ORDER BY name').all()).results;
+    const asg = (await env.DB.prepare('SELECT * FROM assign').all()).results;
+    const devs = (await env.DB.prepare('SELECT id, name, last_seen, report FROM devices WHERE claimed = 1 ORDER BY name').all()).results;
+    return json({
+      now: now(),
+      devices: devs.map((d) => ({ id: d.id, name: d.name, lastSeen: d.last_seen, report: parseJson(d.report, null) })),
+      playlists: pls.map((p) => {
+        const cats = parseJson(p.categories, null), hidden = cleanHidden(parseJson(p.hidden, {}));
+        return { ...PL_FIELDS(p), devices: asg.filter((a) => a.playlist_id === p.id).map((a) => a.device_id), hiddenCount: hiddenCount(hidden),
+          catCounts: cats ? { live: cats.live?.length || 0, movies: cats.movies?.length || 0, series: cats.series?.length || 0 } : null };
+      }),
+    });
+  }
+  if (path === '/api/library' && m === 'POST') {
+    const b = await body(req);
+    const [p, e] = validatePlaylist(b);
+    if (e) return err(400, e);
+    const dup = (await env.DB.prepare('SELECT * FROM library').all()).results.find((x) => sameLogin(x, p));
+    if (dup) return err(409, `This login is already saved as “${dup.name || 'a playlist'}”. Tick more TVs on that one instead.`);
+    const id = newId();
+    const stmts = [env.DB.prepare('INSERT INTO library (id, name, type, server, user, pass, url, epg_url, hidden, created, updated) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+      .bind(id, p.name, p.type, p.server, p.user, p.pass, p.url, p.epg_url, '{}', now(), now())];
+    stmts.push(...(await assignStmts(env, id, b.devices)));
+    await env.DB.batch(stmts);
+    return json({ ok: true, id });
+  }
+  if ((r = path.match(/^\/api\/library\/([\w-]+)$/))) {
+    const cur = await env.DB.prepare('SELECT * FROM library WHERE id = ?').bind(r[1]).first();
+    if (!cur) return err(404, 'Unknown playlist');
+    if (m === 'PUT') {
+      const b = await body(req);
+      const [p, e] = validatePlaylist(b);
+      if (e) return err(400, e);
+      const stmts = [env.DB.prepare('UPDATE library SET name=?, type=?, server=?, user=?, pass=?, url=?, epg_url=?, updated=? WHERE id = ?')
+        .bind(p.name, p.type, p.server, p.user, p.pass, p.url, p.epg_url, now(), cur.id)];
+      if (!sameLogin(cur, p)) stmts.push(env.DB.prepare('UPDATE library SET categories = NULL, cat_source = NULL, cat_at = NULL WHERE id = ?').bind(cur.id));
+      if (Array.isArray(b.devices)) stmts.push(...(await assignStmts(env, cur.id, b.devices)));
+      await env.DB.batch(stmts);
+      return json({ ok: true });
+    }
+    if (m === 'DELETE') {
+      await env.DB.batch([
+        env.DB.prepare('DELETE FROM assign WHERE playlist_id = ?').bind(cur.id),
+        env.DB.prepare('DELETE FROM aliases WHERE playlist_id = ?').bind(cur.id),
+        env.DB.prepare('DELETE FROM library WHERE id = ?').bind(cur.id),
+      ]);
+      return json({ ok: true });
+    }
+  }
+  if ((r = path.match(/^\/api\/library\/([\w-]+)\/categories$/)) && m === 'GET') {
+    const p = await env.DB.prepare('SELECT * FROM library WHERE id = ?').bind(r[1]).first();
+    if (!p) return err(404, 'Unknown playlist');
+    return json({ id: p.id, name: p.name, type: p.type, categories: parseJson(p.categories, null), source: p.cat_source, at: p.cat_at, hidden: cleanHidden(parseJson(p.hidden, {})) });
+  }
+  if ((r = path.match(/^\/api\/library\/([\w-]+)\/categories\/fetch$/)) && m === 'POST') {
+    const p = await env.DB.prepare('SELECT * FROM library WHERE id = ?').bind(r[1]).first();
+    if (!p) return err(404, 'Unknown playlist');
+    if (p.type !== 'xtream') return err(400, 'M3U playlists are too large to read here. Open the playlist on any of its TVs and the categories appear here automatically.');
+    try {
+      const cats = await providerCategories(p);
+      await env.DB.prepare("UPDATE library SET categories = ?, cat_source = 'provider', cat_at = ? WHERE id = ?").bind(JSON.stringify(cats), now(), p.id).run();
+      return json({ ok: true, categories: cats, source: 'provider', at: now() });
+    } catch (e) {
+      return err(502, `The provider didn't answer the website (${e.message}). Open the playlist on one of its TVs and its categories will appear here.`);
+    }
+  }
+  if ((r = path.match(/^\/api\/library\/([\w-]+)\/hidden$/)) && m === 'PUT') {
+    const b = await body(req);
+    const hidden = cleanHidden(b.hidden);
+    const res = await env.DB.prepare('UPDATE library SET hidden = ?, updated = ? WHERE id = ?').bind(JSON.stringify(hidden), now(), r[1]).run();
+    if (!res.meta?.changes) return err(404, 'Unknown playlist');
+    return json({ ok: true, hiddenCount: hiddenCount(hidden) });
+  }
+  if ((r = path.match(/^\/api\/devices\/([\w-]+)\/playlists$/)) && m === 'PUT') {
+    const dev = await env.DB.prepare('SELECT id FROM devices WHERE id = ? AND claimed = 1').bind(r[1]).first();
+    if (!dev) return err(404, 'Unknown TV');
+    const b = await body(req);
+    const ids = new Set((Array.isArray(b.ids) ? b.ids : []).map((x) => str(x, 40)));
+    const all = (await env.DB.prepare('SELECT id FROM library').all()).results.map((x) => x.id).filter((id) => ids.has(id));
+    // touch the playlists so the TV re-reads them
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM assign WHERE device_id = ?').bind(dev.id),
+      ...all.map((id) => env.DB.prepare('INSERT INTO assign (playlist_id, device_id) VALUES (?, ?)').bind(id, dev.id)),
+    ]);
+    return json({ ok: true });
   }
   if (path === '/api/devices/claim' && m === 'POST') {
     const b = await body(req);
@@ -145,32 +314,12 @@ async function handleAdmin(req, env, path) {
     }
     if (m === 'DELETE') {
       await env.DB.batch([
-        env.DB.prepare('DELETE FROM playlists WHERE device_id = ?').bind(id),
+        env.DB.prepare('DELETE FROM assign WHERE device_id = ?').bind(id),
         env.DB.prepare('DELETE FROM commands WHERE device_id = ?').bind(id),
         env.DB.prepare('DELETE FROM devices WHERE id = ?').bind(id),
       ]);
       return json({ ok: true });
     }
-  }
-  if ((r = path.match(/^\/api\/devices\/([\w-]+)\/playlists$/)) && m === 'POST') {
-    const dev = await env.DB.prepare('SELECT id FROM devices WHERE id = ? AND claimed = 1').bind(r[1]).first();
-    if (!dev) return err(404, 'Unknown TV');
-    const [p, e] = validatePlaylist(await body(req));
-    if (e) return err(400, e);
-    const id = newId();
-    await env.DB.prepare('INSERT INTO playlists (id, device_id, name, type, server, user, pass, url, epg_url, updated) VALUES (?,?,?,?,?,?,?,?,?,?)')
-      .bind(id, dev.id, p.name, p.type, p.server, p.user, p.pass, p.url, p.epg_url, now()).run();
-    return json({ ok: true, id });
-  }
-  if ((r = path.match(/^\/api\/playlists\/([\w-]+)$/))) {
-    if (m === 'PUT') {
-      const [p, e] = validatePlaylist(await body(req));
-      if (e) return err(400, e);
-      await env.DB.prepare('UPDATE playlists SET name=?, type=?, server=?, user=?, pass=?, url=?, epg_url=?, updated=? WHERE id = ?')
-        .bind(p.name, p.type, p.server, p.user, p.pass, p.url, p.epg_url, now(), r[1]).run();
-      return json({ ok: true });
-    }
-    if (m === 'DELETE') { await env.DB.prepare('DELETE FROM playlists WHERE id = ?').bind(r[1]).run(); return json({ ok: true }); }
   }
   if ((r = path.match(/^\/api\/devices\/([\w-]+)\/commands$/)) && m === 'POST') {
     const b = await body(req);
@@ -219,9 +368,10 @@ async function handleDevice(req, env, path) {
       return json({ claimed: false, code, expires });
     }
     await env.DB.prepare('UPDATE devices SET last_seen = ? WHERE id = ?').bind(now(), d.id).run();
-    const pls = (await env.DB.prepare('SELECT * FROM playlists WHERE device_id = ? ORDER BY updated').bind(d.id).all()).results;
+    const pls = (await env.DB.prepare('SELECT l.* FROM library l JOIN assign a ON a.playlist_id = l.id WHERE a.device_id = ? ORDER BY l.created').bind(d.id).all()).results;
+    const als = (await env.DB.prepare('SELECT * FROM aliases').all()).results;
     const cmds = (await env.DB.prepare('SELECT id, type, payload FROM commands WHERE device_id = ? AND done IS NULL ORDER BY created').bind(d.id).all()).results;
-    return json({ claimed: true, name: d.name, playlists: pls.map(PL_FIELDS), commands: cmds });
+    return json({ claimed: true, name: d.name, playlists: pls.map((p) => ({ ...PL_FIELDS(p), aliases: als.filter((a) => a.playlist_id === p.id).map((a) => a.old_id) })), commands: cmds });
   }
 
   if (path === '/api/device/report' && req.method === 'POST') {
@@ -240,16 +390,36 @@ async function handleDevice(req, env, path) {
   // they can be managed from the portal. Returns the new ids to link them.
   if (path === '/api/device/adopt' && req.method === 'POST' && d.claimed) {
     const b = await body(req);
+    const lib = (await env.DB.prepare('SELECT * FROM library').all()).results;
     const out = [];
     for (const item of (Array.isArray(b.playlists) ? b.playlists : []).slice(0, 20)) {
       const [p, e] = validatePlaylist(item);
       if (e) continue;
-      const id = newId();
-      await env.DB.prepare('INSERT INTO playlists (id, device_id, name, type, server, user, pass, url, epg_url, updated) VALUES (?,?,?,?,?,?,?,?,?,?)')
-        .bind(id, d.id, p.name, p.type, p.server, p.user, p.pass, p.url, p.epg_url, now()).run();
+      let id = lib.find((l) => sameLogin(l, p))?.id;
+      const stmts = [];
+      if (!id) {
+        id = newId(); lib.push({ ...p, id });
+        stmts.push(env.DB.prepare('INSERT INTO library (id, name, type, server, user, pass, url, epg_url, hidden, created, updated) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+          .bind(id, p.name, p.type, p.server, p.user, p.pass, p.url, p.epg_url, '{}', now(), now()));
+      }
+      stmts.push(env.DB.prepare('INSERT OR IGNORE INTO assign (playlist_id, device_id) VALUES (?, ?)').bind(id, d.id));
+      await env.DB.batch(stmts);
       out.push({ localId: str(item.localId, 40), id });
     }
     return json({ ok: true, linked: out });
+  }
+
+  // The TV sends the category names it loaded (fallback for providers that block the website)
+  if (path === '/api/device/categories' && req.method === 'POST' && d.claimed) {
+    const b = await body(req);
+    const id = str(b.id, 40);
+    const ok = await env.DB.prepare('SELECT 1 FROM assign WHERE playlist_id = ? AND device_id = ?').bind(id, d.id).first();
+    if (!ok) return err(404, 'Not assigned');
+    const cats = {};
+    for (const k of ['live', 'movies', 'series']) cats[k] = [...new Set((Array.isArray(b.categories?.[k]) ? b.categories[k] : []).map((x) => str(x, 200)).filter(Boolean))].slice(0, 5000);
+    const label = 'tv:' + str(d.name, 60);
+    await env.DB.prepare('UPDATE library SET categories = ?, cat_source = ?, cat_at = ? WHERE id = ?').bind(JSON.stringify(cats), label, now(), id).run();
+    return json({ ok: true });
   }
   return err(404, 'Not found');
 }
@@ -262,6 +432,7 @@ export default {
     const url = new URL(req.url);
     const path = url.pathname;
     try {
+      if (path.startsWith('/api/')) await ensureSchema(env);
       if (path.startsWith('/api/device/')) {
         // TVs call from their app (different origin): allow CORS, bearer auth only (no cookies)
         if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });

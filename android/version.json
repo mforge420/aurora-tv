@@ -1,8 +1,10 @@
 {
-    "versionCode": 31,
-    "versionName": "1.0.30",
+    "versionCode": 32,
+    "versionName": "1.0.31",
     "url": "https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk",
     "notes": [
-        "TV guide: channels (or gaps) with no guide data now show hourly \"No information\" blocks, e.g. 7:00 \u2013 8:00, that you can step through with \u25c0 \u25b6"
+        "Playlists can now be managed from the website: one playlist, many TVs",
+        "Categories hidden on the website disappear on every TV using that playlist",
+        "Website playlists show \"Managed online\" in Settings"
     ]
 }

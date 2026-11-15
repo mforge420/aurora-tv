@@ -164,8 +164,9 @@ class Library extends Emitter {
   recentChannels(n = 20) { return this.recents.map((id) => this.findChannel(id)).filter((c) => c && c.num !== undefined).slice(0, n); }
   /** Live channels of any playlist (active or not), e.g. for multi-view */
   channelsOf(srcId) {
-    const hidden = new Set(settings.get('hiddenGroups'));
-    return (this.source(srcId)?._cat?.live || []).filter((c) => !hidden.has(c.group));
+    const src = this.source(srcId);
+    const hidden = new Set([...settings.get('hiddenGroups'), ...(src?.hidden?.live || [])]);
+    return (src?._cat?.live || []).filter((c) => !hidden.has(c.group));
   }
   /** How many streams this playlist may play at once (provider info, user override, else 1) */
   maxStreams(src) {
@@ -187,6 +188,8 @@ class Library extends Emitter {
     const multi = this.sources.length > 1;
     for (const s of this.activeSources()) {
       const c = s._cat; if (!c) continue;
+      // categories hidden for this playlist on the website
+      const hl = new Set(s.hidden?.live || []), hm = new Set(s.hidden?.movies || []), hs = new Set(s.hidden?.series || []);
       const pre = (g) => (multi ? `${g}` : g);
       const order = c.groupOrder || {};
       for (const g of order.live || []) if (!lg.has(pre(g))) lg.set(pre(g), 0);
@@ -194,11 +197,11 @@ class Library extends Emitter {
       for (const g of order.series || []) if (!sg.has(pre(g))) sg.set(pre(g), 0);
       for (const ch of c.live) {
         this.byId.set(ch.id, ch);
-        if (hidden.has(ch.group)) continue;
+        if (hidden.has(ch.group) || hl.has(ch.group)) continue;
         this.live.push(ch); lg.set(ch.group, (lg.get(ch.group) || 0) + 1);
       }
-      for (const m of c.movies) { this.byId.set(m.id, m); if (hidden.has(m.group)) continue; this.movies.push(m); mg.set(m.group, (mg.get(m.group) || 0) + 1); }
-      for (const m of c.series) { this.byId.set(m.id, m); if (hidden.has(m.group)) continue; this.series.push(m); sg.set(m.group, (sg.get(m.group) || 0) + 1); }
+      for (const m of c.movies) { this.byId.set(m.id, m); if (hidden.has(m.group) || hm.has(m.group)) continue; this.movies.push(m); mg.set(m.group, (mg.get(m.group) || 0) + 1); }
+      for (const m of c.series) { this.byId.set(m.id, m); if (hidden.has(m.group) || hs.has(m.group)) continue; this.series.push(m); sg.set(m.group, (sg.get(m.group) || 0) + 1); }
     }
     const toList = (m) => [...m].filter(([, n]) => n > 0).map(([name, count]) => ({ name, count }));
     this.liveGroups = toList(lg);
@@ -207,7 +210,7 @@ class Library extends Emitter {
     // every playlist's channels by id (recent channels can come from any playlist)
     this.allById = new Map();
     for (const s of this.sources) for (const ch of s._cat?.live || []) this.allById.set(ch.id, ch);
-    this.allLiveGroups = [...new Set(this.sources.flatMap((s) => (s._cat?.live || []).map((c) => c.group)))];
+    this.allLiveGroups = [...new Set(this.sources.flatMap((s) => { const h = new Set(s.hidden?.live || []); return (s._cat?.live || []).map((c) => c.group).filter((g) => !h.has(g)); }))];
     this.allVodGroups = [...new Set(this.sources.flatMap((s) => [...(s._cat?.movies || []), ...(s._cat?.series || [])].map((c) => c.group)))];
     this.buildEpgIndex();
     this.emit('change');

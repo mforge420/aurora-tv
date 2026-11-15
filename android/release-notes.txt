@@ -1,1 +1,3 @@
-TV guide: channels (or gaps) with no guide data now show hourly "No information" blocks, e.g. 7:00 – 8:00, that you can step through with ◀ ▶
+Playlists can now be managed from the website: one playlist, many TVs
+Categories hidden on the website disappear on every TV using that playlist
+Website playlists show "Managed online" in Settings

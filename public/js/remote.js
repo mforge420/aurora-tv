@@ -70,6 +70,7 @@ class Remote extends Emitter {
       await this.#apply(j.playlists || []);
       for (const c of j.commands || []) await this.#run(c);
       await this.#report();
+      await this.#sendCategories();
     } catch (e) {
       this.#set({ ...this.status, error: e.message || 'Offline' });
     } finally { this.#busy = false; }
@@ -93,13 +94,20 @@ class Remote extends Emitter {
   async #apply(list) {
     const ids = new Set(list.map((p) => p.id));
     let changed = false;
+    // playlists merged on the website keep their old id as an alias: relink instead of reloading
+    for (const src of lib.sources) {
+      if (!src.remoteId || ids.has(src.remoteId)) continue;
+      const to = list.find((p) => (p.aliases || []).includes(src.remoteId));
+      if (to && !lib.sources.some((s) => s.remoteId === to.id)) { src.remoteId = to.id; src.remoteUpdated = 0; changed = true; }
+    }
     for (const src of [...lib.sources]) {
       if (src.remoteId && !ids.has(src.remoteId)) { await lib.removeSource(src.id); changed = true; }
     }
     for (const p of list) {
+      const hidden = { live: p.hidden?.live || [], movies: p.hidden?.movies || [], series: p.hidden?.series || [] };
       const def = p.type === 'xtream'
-        ? { type: 'xtream', name: p.name || hostOf(p.server), server: p.server, user: p.user, pass: p.pass || '', epgUrl: p.epgUrl || '' }
-        : { type: 'm3u', name: p.name || hostOf(p.url), url: p.url, epgUrl: p.epgUrl || '' };
+        ? { type: 'xtream', name: p.name || hostOf(p.server), server: p.server, user: p.user, pass: p.pass || '', epgUrl: p.epgUrl || '', hidden }
+        : { type: 'm3u', name: p.name || hostOf(p.url), url: p.url, epgUrl: p.epgUrl || '', hidden };
       const src = lib.sources.find((s) => s.remoteId === p.id);
       const failed = this.s.failed?.[p.id];
       if (!src) {
@@ -138,6 +146,22 @@ class Remote extends Emitter {
       else if (c.type === 'reload') { this.#done.push(c.id); await this.#report(); location.reload(); return; }
     } catch {}
     this.#done.push(c.id);
+  }
+
+  /** Send the category names of each website playlist once per load (the website can't always reach providers) */
+  async #sendCategories() {
+    for (const src of lib.sources) {
+      const c = src._cat;
+      if (!src.remoteId || !c || !src.updated || src.catsSent === src.updated) continue;
+      const names = (list) => [...new Set(list.map((x) => x.group).filter(Boolean))];
+      const order = c.groupOrder || {};
+      const pick = (k, list) => { const seen = names(list); const ord = (order[k] || []).filter((g) => seen.includes(g)); return [...ord, ...seen.filter((g) => !ord.includes(g))]; };
+      const categories = { live: pick('live', c.live || []), movies: pick('movies', c.movies || []), series: pick('series', c.series || []) };
+      try {
+        const r = await fetch(this.s.url + '/api/device/categories', { method: 'POST', headers: { ...this.#auth(), 'content-type': 'application/json' }, body: JSON.stringify({ id: src.remoteId, categories }) });
+        if (r.ok || r.status === 404) { src.catsSent = src.updated; lib.saveSources(); }
+      } catch {}
+    }
   }
 
   async #report() {

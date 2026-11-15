@@ -9,3 +9,4 @@ android/keystore.properties
 portal/node_modules/
 portal/.wrangler/
 src/pages.js
+portal/.dev.vars
