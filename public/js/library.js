@@ -43,14 +43,29 @@ class Library extends Emitter {
   source(id) { return this.sources.find((s) => s.id === id); }
 
   // ---------------- loading ----------------
+  /**
+   * Startup: only the playlist being watched is needed for the first screen. Other playlists and the
+   * cached TV guide load right after, in the background (views refresh on the 'epg' event).
+   */
   async init() {
-    for (const s of this.sources) {
-      const cat = await idb.get('cat:' + s.id);
-      if (cat) s._cat = cat;
-    }
+    const t0 = performance.now();
+    const loadCat = async (s) => { const cat = await idb.get('cat:' + s.id); if (cat) s._cat = cat; };
+    const a = this.activeId();
+    const first = a === 'all' ? this.sources : this.sources.filter((s) => s.id === a);
+    await Promise.all(first.map(loadCat));
     this.rebuild();
-    await this.loadEpgFromCache();
-    this.backgroundRefresh();
+    const boot = (this.diag.boot = { playlists: this.sources.length, firstScreenMs: Math.round(performance.now() - t0) });
+    this.ready = (async () => {
+      await new Promise((r) => setTimeout(r, 50)); // let the first screen paint
+      const rest = this.sources.filter((s) => !first.includes(s));
+      for (const s of rest) await loadCat(s);
+      // switched playlist while these were loading? show it properly now
+      if (this.activeSources().some((s) => rest.includes(s))) this.rebuild(); else if (rest.length) this.#indexAll();
+      boot.otherPlaylistsMs = Math.round(performance.now() - t0);
+      await this.loadEpgFromCache();
+      boot.guideCacheMs = Math.round(performance.now() - t0);
+      this.backgroundRefresh();
+    })().catch((e) => console.error(e));
   }
 
   async addSource(def, onStep, { activate = false } = {}) {
@@ -209,13 +224,18 @@ class Library extends Emitter {
     this.liveGroups = toList(lg);
     this.movieGroups = toList(mg);
     this.seriesGroups = toList(sg);
+    this.#indexAll();
+    this.buildEpgIndex();
+    this.emit('change');
+  }
+
+  /** indexes across every playlist (recents, multi-view, settings) */
+  #indexAll() {
     // every playlist's channels by id (recent channels can come from any playlist)
     this.allById = new Map();
     for (const s of this.sources) for (const ch of s._cat?.live || []) this.allById.set(ch.id, ch);
     this.allLiveGroups = [...new Set(this.sources.flatMap((s) => { const h = new Set(s.hidden?.live || []); return (s._cat?.live || []).map((c) => c.group).filter((g) => !h.has(g)); }))];
     this.allVodGroups = [...new Set(this.sources.flatMap((s) => [...(s._cat?.movies || []), ...(s._cat?.series || [])].map((c) => c.group)))];
-    this.buildEpgIndex();
-    this.emit('change');
   }
 
   channelsIn(group) {

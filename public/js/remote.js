@@ -119,9 +119,16 @@ class Remote extends Emitter {
         } catch (e) { (this.s.failed ||= {})[p.id] = { updated: p.updated, error: e.message }; }
         this.#save();
       } else if (p.updated > (src.remoteUpdated || 0)) {
-        const credsChanged = ['type', 'server', 'user', 'pass', 'url'].some((k) => (src[k] || '') !== (def[k] || ''));
-        const epgChanged = (src.epgUrl || '') !== (def.epgUrl || '') && (def.epgUrl || !credsChanged);
-        Object.assign(src, def, { remoteUpdated: p.updated });
+        // compare logins loosely: "http://host:8080/" and "host:8080" are the same server
+        const norm = (k, v) => (k === 'server' ? String(v || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/+$/, '') : String(v || '').trim());
+        const credsChanged = ['type', 'server', 'user', 'pass', 'url'].some((k) => norm(k, src[k]) !== norm(k, def[k]));
+        // Only a guide URL typed on the website counts. An empty one means "detect it", so the URL the
+        // TV detected itself is kept (wiping it used to throw the guide away on every website edit).
+        const prevRemoteEpg = 'remoteEpg' in src ? src.remoteEpg : (def.epgUrl ? '' : src.epgUrl || '');
+        const epgChanged = (def.epgUrl || '') !== (prevRemoteEpg || '') && !(!def.epgUrl && !credsChanged);
+        const keepEpg = src.epgUrl;
+        Object.assign(src, def, { remoteUpdated: p.updated, remoteEpg: def.epgUrl || '' });
+        if (!def.epgUrl && !credsChanged) src.epgUrl = keepEpg;
         if (credsChanged) {
           if (!p.epgUrl) src.epgUrl = '';
           try { await lib.refreshSource(src); delete this.s.failed?.[p.id]; } catch (e) { (this.s.failed ||= {})[p.id] = { updated: p.updated, error: e.message }; }
@@ -129,6 +136,9 @@ class Remote extends Emitter {
         } else if (epgChanged) src.epgUpdated = 0;
         lib.saveSources(); this.#save(); changed = true;
       }
+      // repair guides lost to the old bug: Xtream playlists can always re-detect their guide URL
+      const s2 = lib.sources.find((s) => s.remoteId === p.id);
+      if (s2 && !s2.epgUrl && s2.type === 'xtream') { try { s2.epgUrl = lib.xtream(s2).epgUrl(); s2.epgUpdated = 0; lib.saveSources(); changed = true; } catch {} }
     }
     if (changed) { lib.rebuild(); lib.refreshEpg().catch(() => {}); }
   }

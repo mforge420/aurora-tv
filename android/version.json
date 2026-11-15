@@ -1,8 +1,9 @@
 {
-    "versionCode": 33,
-    "versionName": "1.0.32",
+    "versionCode": 34,
+    "versionName": "1.0.33",
     "url": "https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk",
     "notes": [
-        "Category order set on the website (drag to sort, A\u2013Z, Z\u2013A) now applies on the TV: Live TV, guide, Movies and Series"
+        "Faster startup: the screen appears as soon as the playlist you're watching is loaded; other playlists and the TV guide load right after in the background",
+        "Fix: hiding or sorting categories on the website no longer makes the TV re-download its TV guide (and lose the guide link) on the next start"
     ]
 }

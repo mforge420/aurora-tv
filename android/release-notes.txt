@@ -1,1 +1,2 @@
-Category order set on the website (drag to sort, A–Z, Z–A) now applies on the TV: Live TV, guide, Movies and Series
+Faster startup: the screen appears as soon as the playlist you're watching is loaded; other playlists and the TV guide load right after in the background
+Fix: hiding or sorting categories on the website no longer makes the TV re-download its TV guide (and lose the guide link) on the next start
