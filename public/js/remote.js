@@ -105,9 +105,10 @@ class Remote extends Emitter {
     }
     for (const p of list) {
       const hidden = { live: p.hidden?.live || [], movies: p.hidden?.movies || [], series: p.hidden?.series || [] };
+      const order = { live: p.order?.live || [], movies: p.order?.movies || [], series: p.order?.series || [] };
       const def = p.type === 'xtream'
-        ? { type: 'xtream', name: p.name || hostOf(p.server), server: p.server, user: p.user, pass: p.pass || '', epgUrl: p.epgUrl || '', hidden }
-        : { type: 'm3u', name: p.name || hostOf(p.url), url: p.url, epgUrl: p.epgUrl || '', hidden };
+        ? { type: 'xtream', name: p.name || hostOf(p.server), server: p.server, user: p.user, pass: p.pass || '', epgUrl: p.epgUrl || '', hidden, order }
+        : { type: 'm3u', name: p.name || hostOf(p.url), url: p.url, epgUrl: p.epgUrl || '', hidden, order };
       const src = lib.sources.find((s) => s.remoteId === p.id);
       const failed = this.s.failed?.[p.id];
       if (!src) {

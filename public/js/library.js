@@ -192,9 +192,11 @@ class Library extends Emitter {
       const hl = new Set(s.hidden?.live || []), hm = new Set(s.hidden?.movies || []), hs = new Set(s.hidden?.series || []);
       const pre = (g) => (multi ? `${g}` : g);
       const order = c.groupOrder || {};
-      for (const g of order.live || []) if (!lg.has(pre(g))) lg.set(pre(g), 0);
-      for (const g of order.movies || []) if (!mg.has(pre(g))) mg.set(pre(g), 0);
-      for (const g of order.series || []) if (!sg.has(pre(g))) sg.set(pre(g), 0);
+      // category order chosen on the website comes first, then the provider's order
+      const so = s.order || {};
+      for (const g of [...(so.live || []), ...(order.live || [])]) if (!lg.has(pre(g))) lg.set(pre(g), 0);
+      for (const g of [...(so.movies || []), ...(order.movies || [])]) if (!mg.has(pre(g))) mg.set(pre(g), 0);
+      for (const g of [...(so.series || []), ...(order.series || [])]) if (!sg.has(pre(g))) sg.set(pre(g), 0);
       for (const ch of c.live) {
         this.byId.set(ch.id, ch);
         if (hidden.has(ch.group) || hl.has(ch.group)) continue;

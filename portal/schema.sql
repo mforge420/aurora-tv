@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS commands (id TEXT PRIMARY KEY, device_id TEXT NOT NUL
 CREATE INDEX IF NOT EXISTS commands_device ON commands (device_id, done);
 -- v2: shared playlist library (created/migrated automatically by the Worker too)
 CREATE TABLE IF NOT EXISTS library (id TEXT PRIMARY KEY, name TEXT, type TEXT NOT NULL, server TEXT, user TEXT, pass TEXT,
-  url TEXT, epg_url TEXT, hidden TEXT, categories TEXT, cat_source TEXT, cat_at INTEGER, created INTEGER NOT NULL, updated INTEGER NOT NULL);
+  url TEXT, epg_url TEXT, hidden TEXT, categories TEXT, cat_source TEXT, cat_at INTEGER, created INTEGER NOT NULL, updated INTEGER NOT NULL, cat_order TEXT);
 CREATE TABLE IF NOT EXISTS assign (playlist_id TEXT NOT NULL, device_id TEXT NOT NULL, PRIMARY KEY (playlist_id, device_id));
 CREATE INDEX IF NOT EXISTS assign_device ON assign (device_id);
 CREATE TABLE IF NOT EXISTS aliases (old_id TEXT PRIMARY KEY, playlist_id TEXT NOT NULL);

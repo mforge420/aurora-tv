@@ -1,10 +1,8 @@
 {
-    "versionCode": 32,
-    "versionName": "1.0.31",
+    "versionCode": 33,
+    "versionName": "1.0.32",
     "url": "https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk",
     "notes": [
-        "Playlists can now be managed from the website: one playlist, many TVs",
-        "Categories hidden on the website disappear on every TV using that playlist",
-        "Website playlists show \"Managed online\" in Settings"
+        "Category order set on the website (drag to sort, A\u2013Z, Z\u2013A) now applies on the TV: Live TV, guide, Movies and Series"
     ]
 }

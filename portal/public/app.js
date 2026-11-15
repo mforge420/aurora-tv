@@ -283,56 +283,125 @@ async function libraryView() {
 async function categoriesView(id) {
   let C = await api(`/api/library/${id}/categories`);
   let kind = 'live', q = '';
-  const hidden = { live: new Set(C.hidden.live), movies: new Set(C.hidden.movies), series: new Set(C.hidden.series) };
   const KINDS = [['live', 'Live TV'], ['movies', 'Movies'], ['series', 'Series']];
-  let saveT = 0;
-  const save = () => {
-    clearTimeout(saveT);
-    document.getElementById('savestate').textContent = 'Saving…';
-    saveT = setTimeout(async () => {
+  const hidden = {}, order = {};
+  for (const [k] of KINDS) { hidden[k] = new Set(C.hidden?.[k] || []); order[k] = [...(C.order?.[k] || [])]; }
+
+  // ---- saving (debounced; hidden + order are separate calls)
+  const timers = {};
+  const status = (t, ok = true) => { const el = document.getElementById('savestate'); if (el) { el.textContent = t; el.style.color = ok ? 'var(--ok)' : 'var(--bad)'; } };
+  const saveLater = (what) => {
+    clearTimeout(timers[what]); status('Saving…');
+    timers[what] = setTimeout(async () => {
       try {
-        await api(`/api/library/${id}/hidden`, { method: 'PUT', body: { hidden: { live: [...hidden.live], movies: [...hidden.movies], series: [...hidden.series] } } });
-        document.getElementById('savestate').textContent = 'Saved · the TVs update within a minute';
-      } catch (e) { document.getElementById('savestate').textContent = 'Not saved: ' + e.message; }
+        if (what === 'hidden') await api(`/api/library/${id}/hidden`, { method: 'PUT', body: { hidden: { live: [...hidden.live], movies: [...hidden.movies], series: [...hidden.series] } } });
+        else await api(`/api/library/${id}/order`, { method: 'PUT', body: { order } });
+        status('Saved · the TVs update within a minute');
+      } catch (e) { status('Not saved: ' + e.message, false); }
     }, 700);
   };
-  const list = () => {
-    const all = C.categories?.[kind] || [];
-    // categories hidden earlier but no longer sent by the provider still show, so they can be un-hidden
-    const names = [...all, ...[...hidden[kind]].filter((n) => !all.includes(n))];
-    const ql = q.toLowerCase();
-    return names.filter((n) => !ql || n.toLowerCase().includes(ql));
+
+  // categories in display order: saved order first, then any new ones in provider order;
+  // hidden names the provider no longer sends stay listed so they can be switched back on
+  const provider = (k) => C.categories?.[k] || [];
+  const ordered = (k) => {
+    const prov = provider(k), extra = [...hidden[k]].filter((n) => !prov.includes(n));
+    const all = [...prov, ...extra];
+    const set = new Set(all);
+    const first = order[k].filter((n) => set.has(n));
+    const seen = new Set(first);
+    return [...first, ...all.filter((n) => !seen.has(n))];
   };
+  const setOrder = (names) => { order[kind] = names; saveLater('order'); };
+  const isCustom = (k) => order[k].length > 0 && ordered(k).some((n, i) => n !== [...provider(k), ...[...hidden[k]].filter((x) => !provider(k).includes(x))][i]);
+
+  const countText = () => {
+    const total = provider(kind).length;
+    if (!total) return '';
+    const shown = total - [...hidden[kind]].filter((n) => provider(kind).includes(n)).length;
+    return `${shown} of ${total} shown` + (q ? ` · ${visible().length} match` : '');
+  };
+  const visible = () => { const ql = q.toLowerCase(); return ordered(kind).filter((n) => !ql || n.toLowerCase().includes(ql)); };
+
   const drawList = () => {
-    const names = list(), box = document.getElementById('cats');
-    const total = (C.categories?.[kind] || []).length;
-    document.getElementById('count').textContent = total ? `${total - [...hidden[kind]].filter((n) => C.categories[kind].includes(n)).length} of ${total} shown${q ? ` · ${names.length} match` : ''}` : '';
-    box.innerHTML = names.length ? names.map((n) => `<label class="cat ${hidden[kind].has(n) ? 'off' : ''}"><span>${esc(n)}</span><input type="checkbox" class="sw" data-n="${esc(n)}" ${hidden[kind].has(n) ? '' : 'checked'}></label>`).join('')
-      : `<p class="muted" style="padding:18px 4px">${C.categories ? (q ? 'No categories match.' : 'No categories of this kind.') : ''}</p>`;
-    for (const i of box.querySelectorAll('input')) i.onchange = () => { i.checked ? hidden[kind].delete(i.dataset.n) : hidden[kind].add(i.dataset.n); i.closest('.cat').classList.toggle('off', !i.checked); save(); drawCount(); };
+    const box = document.getElementById('cats');
+    const names = visible(), canMove = !q;
+    box.classList.toggle('no-move', !canMove);
+    box.innerHTML = names.length ? names.map((n, i) => `<div class="cat ${hidden[kind].has(n) ? 'off' : ''}" data-n="${esc(n)}">
+        ${canMove ? `<span class="grip" title="Drag to move" aria-hidden="true">⋮⋮</span>` : ''}<span class="num">${canMove ? i + 1 : ''}</span>
+        <span class="cname">${esc(n)}</span>
+        ${canMove ? `<button class="mv" data-mv="-1" title="Move up" ${i === 0 ? 'disabled' : ''}>▲</button><button class="mv" data-mv="1" title="Move down" ${i === names.length - 1 ? 'disabled' : ''}>▼</button>` : ''}
+        <input type="checkbox" class="sw" title="Show on TVs" ${hidden[kind].has(n) ? '' : 'checked'}></div>`).join('')
+      : `<p class="muted" style="padding:18px 4px">${q ? 'No categories match.' : 'No categories of this kind.'}</p>`;
+    document.getElementById('count').textContent = countText();
+    document.getElementById('sortstate').textContent = isCustom(kind) ? 'Custom order' : 'Provider order';
+    for (const row of box.querySelectorAll('.cat')) {
+      const n = row.dataset.n;
+      const sw = row.querySelector('.sw');
+      sw.onchange = () => { sw.checked ? hidden[kind].delete(n) : hidden[kind].add(n); row.classList.toggle('off', !sw.checked); saveLater('hidden'); drawTabs(); document.getElementById('count').textContent = countText(); };
+      for (const b of row.querySelectorAll('.mv')) b.onclick = () => {
+        const list = ordered(kind), i = list.indexOf(n), j = i + Number(b.dataset.mv);
+        if (j < 0 || j >= list.length) return;
+        [list[i], list[j]] = [list[j], list[i]]; setOrder(list); drawList();
+        box.querySelector(`.cat[data-n="${CSS.escape(n)}"] .mv[data-mv="${b.dataset.mv}"]`)?.focus();
+      };
+      const grip = row.querySelector('.grip');
+      if (grip) grip.onpointerdown = (e) => startDrag(e, row, box);
+    }
   };
-  const drawCount = () => { for (const [k] of KINDS) { const el = document.querySelector(`[data-k="${k}"] em`); if (el) el.textContent = hidden[k].size ? `${hidden[k].size} hidden` : ''; } const total = (C.categories?.[kind] || []).length; if (total) document.getElementById('count').textContent = `${total - [...hidden[kind]].filter((n) => C.categories[kind].includes(n)).length} of ${total} shown`; };
+  // pointer-based drag (works with mouse and touch)
+  const startDrag = (e, row, box) => {
+    e.preventDefault();
+    row.classList.add('dragging'); box.classList.add('is-dragging');
+    const move = (ev) => {
+      const y = ev.clientY;
+      const rows = [...box.querySelectorAll('.cat:not(.dragging)')];
+      const after = rows.find((r) => { const b = r.getBoundingClientRect(); return y < b.top + b.height / 2; });
+      after ? box.insertBefore(row, after) : box.append(row);
+      // auto-scroll near the window edges
+      if (y < 70) window.scrollBy(0, -12); else if (y > innerHeight - 70) window.scrollBy(0, 12);
+    };
+    const up = () => {
+      removeEventListener('pointermove', move); removeEventListener('pointerup', up); removeEventListener('pointercancel', up);
+      row.classList.remove('dragging'); box.classList.remove('is-dragging');
+      const names = [...box.querySelectorAll('.cat')].map((r) => r.dataset.n);
+      if (names.join('\n') !== ordered(kind).join('\n')) setOrder(names);
+      drawList();
+    };
+    addEventListener('pointermove', move); addEventListener('pointerup', up); addEventListener('pointercancel', up);
+  };
+  const drawTabs = () => { for (const [k] of KINDS) { const el = document.querySelector(`[data-k="${k}"] em`); if (el) el.textContent = hidden[k].size ? `${hidden[k].size} hidden` : ''; } };
   const src = () => !C.categories ? '' : C.source === 'provider' ? `From the provider · ${ago(C.at)}` : `Read from ${esc(String(C.source || '').replace(/^tv:/, ''))} · ${ago(C.at)}`;
+
   const draw = () => {
     $app.innerHTML = `<a class="back" href="#/playlists">${I.back} Playlists</a>
-      <div class="head"><div><h1>${esc(C.name || 'Playlist')}</h1><p class="muted">Switch off the categories you don't want. Hidden categories disappear on every TV that uses this playlist.</p></div>
+      <div class="head"><div><h1>${esc(C.name || 'Playlist')}</h1><p class="muted">Switch off categories you don't want and drag them into the order you like. Changes apply to every TV that uses this playlist.</p></div>
         <button class="btn sm" id="reload">${I.refresh}Reload categories</button></div>
       <div class="card sec">
-        <div class="tabs cat-tabs">${KINDS.map(([k, l]) => `<button type="button" data-k="${k}" class="${k === kind ? 'on' : ''}">${l} <em>${hidden[k].size ? hidden[k].size + ' hidden' : ''}</em></button>`).join('')}</div>
+        <div class="tabs cat-tabs">${KINDS.map(([k, l]) => `<button type="button" data-k="${k}" class="${k === kind ? 'on' : ''}">${l} <em></em></button>`).join('')}</div>
         ${C.categories ? `<div class="cat-tools"><input class="in" id="q" placeholder="Search categories" value="${esc(q)}"><button class="btn sm" id="all">Show all</button><button class="btn sm" id="none">Hide all</button></div>
-          <div class="cat-meta"><span id="count" class="small muted"></span><span class="small muted">${src()}</span></div><div id="cats" class="cats"></div>`
+          <div class="cat-tools sort"><span class="small muted">Sort:</span><button class="btn sm ghost" id="az">A → Z</button><button class="btn sm ghost" id="za">Z → A</button><button class="btn sm ghost" id="prov">Provider order</button><span class="small muted" id="sortstate"></span></div>
+          <div class="cat-meta"><span id="count" class="small muted"></span><span class="small muted">${src()}</span></div>
+          <p class="small muted hint-move">Drag <b>⋮⋮</b> or use ▲ ▼ to move a category.${''}</p>
+          <div id="cats" class="cats"></div>`
         : `<div class="empty" id="nocats">${I.list}<h2>Loading categories…</h2><p class="muted" id="nocatsmsg" style="margin-top:6px"></p></div>`}
         <p class="small" id="savestate" style="margin-top:12px;color:var(--ok)"></p>
       </div>`;
+    drawTabs();
     for (const b of document.querySelectorAll('[data-k]')) b.onclick = () => { kind = b.dataset.k; draw(); };
     document.getElementById('reload').onclick = () => fetchCats(true);
     if (!C.categories) return;
     const qi = document.getElementById('q');
-    qi.oninput = () => { q = qi.value; drawList(); };
-    const bulk = (show) => { for (const n of list()) show ? hidden[kind].delete(n) : hidden[kind].add(n); drawList(); drawCount(); save(); };
+    qi.oninput = () => { q = qi.value; document.querySelector('.hint-move').hidden = !!q; drawList(); };
+    document.querySelector('.hint-move').hidden = !!q;
+    const bulk = (show) => { for (const n of visible()) show ? hidden[kind].delete(n) : hidden[kind].add(n); drawList(); drawTabs(); saveLater('hidden'); };
     document.getElementById('all').onclick = () => bulk(true);
-    document.getElementById('none').onclick = () => { if (confirm(q ? `Hide the ${list().length} matching categories?` : `Hide every ${KINDS.find((k) => k[0] === kind)[1]} category?`)) bulk(false); };
-    drawList(); drawCount();
+    document.getElementById('none').onclick = () => { if (confirm(q ? `Hide the ${visible().length} matching categories?` : `Hide every ${KINDS.find((k) => k[0] === kind)[1]} category?`)) bulk(false); };
+    const coll = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true });
+    document.getElementById('az').onclick = () => { setOrder(ordered(kind).sort(coll.compare)); drawList(); };
+    document.getElementById('za').onclick = () => { setOrder(ordered(kind).sort(coll.compare).reverse()); drawList(); };
+    document.getElementById('prov').onclick = () => { setOrder([]); drawList(); };
+    drawList();
   };
   const fetchCats = async (manual) => {
     const btn = document.getElementById('reload'); if (btn) btn.disabled = true;

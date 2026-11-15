@@ -107,6 +107,9 @@ function ensureSchema(env) {
       env.DB.prepare('CREATE TABLE IF NOT EXISTS aliases (old_id TEXT PRIMARY KEY, playlist_id TEXT NOT NULL)'),
       env.DB.prepare('CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)'),
     ]);
+    // v3: category order per playlist
+    const cols = (await env.DB.prepare('PRAGMA table_info(library)').all()).results;
+    if (!cols.some((c) => c.name === 'cat_order')) await env.DB.prepare('ALTER TABLE library ADD COLUMN cat_order TEXT').run();
     const v = await env.DB.prepare("SELECT v FROM meta WHERE k = 'schema'").first();
     if (v?.v === '2') return;
     const old = (await env.DB.prepare('SELECT * FROM playlists ORDER BY updated').all().catch(() => ({ results: [] }))).results;
@@ -144,7 +147,7 @@ function cleanHidden(h) {
 const hiddenCount = (h) => (h.live?.length || 0) + (h.movies?.length || 0) + (h.series?.length || 0);
 
 // ------------------------------------------------------------------ admin API
-const PL_FIELDS = (p) => ({ id: p.id, name: p.name, type: p.type, server: p.server, user: p.user, pass: p.pass, url: p.url, epgUrl: p.epg_url, updated: p.updated, hidden: cleanHidden(parseJson(p.hidden, {})) });
+const PL_FIELDS = (p) => ({ id: p.id, name: p.name, type: p.type, server: p.server, user: p.user, pass: p.pass, url: p.url, epgUrl: p.epg_url, updated: p.updated, hidden: cleanHidden(parseJson(p.hidden, {})), order: cleanHidden(parseJson(p.cat_order, {})) });
 function validatePlaylist(b) {
   const type = b.type === 'm3u' ? 'm3u' : 'xtream';
   const p = { type, name: str(b.name, 80), server: '', user: '', pass: '', url: '', epg_url: str(b.epgUrl, 1000) };
@@ -263,7 +266,7 @@ async function handleAdmin(req, env, path) {
   if ((r = path.match(/^\/api\/library\/([\w-]+)\/categories$/)) && m === 'GET') {
     const p = await env.DB.prepare('SELECT * FROM library WHERE id = ?').bind(r[1]).first();
     if (!p) return err(404, 'Unknown playlist');
-    return json({ id: p.id, name: p.name, type: p.type, categories: parseJson(p.categories, null), source: p.cat_source, at: p.cat_at, hidden: cleanHidden(parseJson(p.hidden, {})) });
+    return json({ id: p.id, name: p.name, type: p.type, categories: parseJson(p.categories, null), source: p.cat_source, at: p.cat_at, hidden: cleanHidden(parseJson(p.hidden, {})), order: cleanHidden(parseJson(p.cat_order, {})) });
   }
   if ((r = path.match(/^\/api\/library\/([\w-]+)\/categories\/fetch$/)) && m === 'POST') {
     const p = await env.DB.prepare('SELECT * FROM library WHERE id = ?').bind(r[1]).first();
@@ -283,6 +286,13 @@ async function handleAdmin(req, env, path) {
     const res = await env.DB.prepare('UPDATE library SET hidden = ?, updated = ? WHERE id = ?').bind(JSON.stringify(hidden), now(), r[1]).run();
     if (!res.meta?.changes) return err(404, 'Unknown playlist');
     return json({ ok: true, hiddenCount: hiddenCount(hidden) });
+  }
+  if ((r = path.match(/^\/api\/library\/([\w-]+)\/order$/)) && m === 'PUT') {
+    const b = await body(req);
+    const order = cleanHidden(b.order); // same shape: { live: [names], movies: [...], series: [...] }
+    const res = await env.DB.prepare('UPDATE library SET cat_order = ?, updated = ? WHERE id = ?').bind(JSON.stringify(order), now(), r[1]).run();
+    if (!res.meta?.changes) return err(404, 'Unknown playlist');
+    return json({ ok: true });
   }
   if ((r = path.match(/^\/api\/devices\/([\w-]+)\/playlists$/)) && m === 'PUT') {
     const dev = await env.DB.prepare('SELECT id FROM devices WHERE id = ? AND claimed = 1').bind(r[1]).first();
