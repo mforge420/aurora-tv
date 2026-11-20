@@ -10,9 +10,23 @@ export function currentVersion() {
   try { return JSON.parse(nativeApi.appVersion()); } catch { return { code: 0, name: '?' }; }
 }
 
+const REPO = 'mforge420/aurora-tv';
+/**
+ * Latest version.json, never a stale copy: github.com/…/raw redirects to a CDN that caches the file
+ * for 5+ minutes (and drops our cache-busting query). So ask the GitHub API for the newest commit
+ * of main and read version.json from that exact commit. Falls back to the plain URL.
+ */
+async function latestVersionInfo() {
+  try {
+    const c = await fetchJSON(`https://api.github.com/repos/${REPO}/commits/main?t=${Date.now()}`);
+    if (c?.sha && /^[0-9a-f]{40}$/.test(c.sha)) return await fetchJSON(`https://raw.githubusercontent.com/${REPO}/${c.sha}/android/version.json`);
+  } catch { /* rate limited / offline: fall back */ }
+  return fetchJSON(`${UPDATE_URL}?t=${Date.now()}`);
+}
+
 export async function checkForUpdate() {
   const cur = currentVersion();
-  const latest = await fetchJSON(`${UPDATE_URL}?t=${Date.now()}`);
+  const latest = await latestVersionInfo();
   return { cur, latest, available: Number(latest.versionCode) > Number(cur.code) };
 }
 
