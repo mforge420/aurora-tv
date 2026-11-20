@@ -110,6 +110,9 @@ function ensureSchema(env) {
     // v3: category order per playlist
     const cols = (await env.DB.prepare('PRAGMA table_info(library)').all()).results;
     if (!cols.some((c) => c.name === 'cat_order')) await env.DB.prepare('ALTER TABLE library ADD COLUMN cat_order TEXT').run();
+    // v4: uploaded guide file (stored in KV); epg_prev keeps the guide URL it replaced
+    if (!cols.some((c) => c.name === 'epg_file')) await env.DB.prepare('ALTER TABLE library ADD COLUMN epg_file TEXT').run();
+    if (!cols.some((c) => c.name === 'epg_prev')) await env.DB.prepare('ALTER TABLE library ADD COLUMN epg_prev TEXT').run();
     const v = await env.DB.prepare("SELECT v FROM meta WHERE k = 'schema'").first();
     if (v?.v === '2') return;
     const old = (await env.DB.prepare('SELECT * FROM playlists ORDER BY updated').all().catch(() => ({ results: [] }))).results;
@@ -147,7 +150,7 @@ function cleanHidden(h) {
 const hiddenCount = (h) => (h.live?.length || 0) + (h.movies?.length || 0) + (h.series?.length || 0);
 
 // ------------------------------------------------------------------ admin API
-const PL_FIELDS = (p) => ({ id: p.id, name: p.name, type: p.type, server: p.server, user: p.user, pass: p.pass, url: p.url, epgUrl: p.epg_url, updated: p.updated, hidden: cleanHidden(parseJson(p.hidden, {})), order: cleanHidden(parseJson(p.cat_order, {})) });
+const PL_FIELDS = (p) => ({ id: p.id, name: p.name, type: p.type, server: p.server, user: p.user, pass: p.pass, url: p.url, epgUrl: p.epg_url, updated: p.updated, hidden: cleanHidden(parseJson(p.hidden, {})), order: cleanHidden(parseJson(p.cat_order, {})), epgFile: fileInfo(p) });
 function validatePlaylist(b) {
   const type = b.type === 'm3u' ? 'm3u' : 'xtream';
   const p = { type, name: str(b.name, 80), server: '', user: '', pass: '', url: '', epg_url: str(b.epgUrl, 1000) };
@@ -190,6 +193,10 @@ async function providerCategories(p) {
   return { live, movies, series };
 }
 
+const MAX_FILE = 25 * 1024 * 1024; // Cloudflare KV value limit
+const fileInfo = (p) => { const f = parseJson(p.epg_file, null); return f ? { name: f.name, size: f.size, at: f.at, channels: f.channels, from: f.from, to: f.to } : null; };
+const fileUrl = (req, p, f) => `${new URL(req.url).origin}/f/epg/${p.id}/${f.token}.xml${f.gz ? '.gz' : ''}`;
+
 async function handleAdmin(req, env, path) {
   if (!(await adminSession(req, env))) return err(401, 'Not signed in');
   const m = req.method;
@@ -222,7 +229,7 @@ async function handleAdmin(req, env, path) {
       devices: devs.map((d) => ({ id: d.id, name: d.name, lastSeen: d.last_seen, report: parseJson(d.report, null) })),
       playlists: pls.map((p) => {
         const cats = parseJson(p.categories, null), hidden = cleanHidden(parseJson(p.hidden, {}));
-        return { ...PL_FIELDS(p), devices: asg.filter((a) => a.playlist_id === p.id).map((a) => a.device_id), hiddenCount: hiddenCount(hidden),
+        return { ...PL_FIELDS(p), devices: asg.filter((a) => a.playlist_id === p.id).map((a) => a.device_id), hiddenCount: hiddenCount(hidden), epgFile: fileInfo(p),
           catCounts: cats ? { live: cats.live?.length || 0, movies: cats.movies?.length || 0, series: cats.series?.length || 0 } : null };
       }),
     });
@@ -260,6 +267,7 @@ async function handleAdmin(req, env, path) {
         env.DB.prepare('DELETE FROM aliases WHERE playlist_id = ?').bind(cur.id),
         env.DB.prepare('DELETE FROM library WHERE id = ?').bind(cur.id),
       ]);
+      if (cur.epg_file) await env.FILES.delete('epg:' + cur.id).catch(() => {});
       return json({ ok: true });
     }
   }
@@ -286,6 +294,39 @@ async function handleAdmin(req, env, path) {
     const res = await env.DB.prepare('UPDATE library SET hidden = ?, updated = ? WHERE id = ?').bind(JSON.stringify(hidden), now(), r[1]).run();
     if (!res.meta?.changes) return err(404, 'Unknown playlist');
     return json({ ok: true, hiddenCount: hiddenCount(hidden) });
+  }
+  // ---- uploaded guide file
+  if ((r = path.match(/^\/api\/library\/([\w-]+)\/epgfile$/))) {
+    const p = await env.DB.prepare('SELECT * FROM library WHERE id = ?').bind(r[1]).first();
+    if (!p) return err(404, 'Unknown playlist');
+    const old = parseJson(p.epg_file, null);
+    const ownUrl = old ? fileUrl(req, p, old) : null;
+    if (m === 'PUT') {
+      const len = Number(req.headers.get('content-length') || 0);
+      if (len > MAX_FILE) return err(413, 'The file is larger than 25 MB. Upload the compressed .gz version.');
+      const buf = await req.arrayBuffer();
+      if (!buf.byteLength) return err(400, 'The file is empty');
+      if (buf.byteLength > MAX_FILE) return err(413, 'The file is larger than 25 MB. Upload the compressed .gz version.');
+      const b = new Uint8Array(buf, 0, Math.min(64, buf.byteLength));
+      const gz = b[0] === 0x1f && b[1] === 0x8b;
+      const head = new TextDecoder().decode(b).trimStart();
+      if (!gz && !head.startsWith('<')) return err(400, "That doesn't look like a TV guide file (.xml or .xml.gz).");
+      const meta = (k, max = 100) => str(req.headers.get('x-' + k), max);
+      const f = { token: randomToken(18), gz, size: buf.byteLength, at: now(), name: meta('name', 120) || 'guide.xml.gz',
+        channels: Number(meta('channels')) || null, from: Number(meta('from')) || null, to: Number(meta('to')) || null };
+      await env.FILES.put('epg:' + p.id, buf, { metadata: { gz } });
+      // remember the guide URL this replaces (only once), so removing the file restores it
+      const prev = old ? p.epg_prev : (p.epg_url || '');
+      await env.DB.prepare('UPDATE library SET epg_file = ?, epg_prev = ?, epg_url = ?, updated = ? WHERE id = ?')
+        .bind(JSON.stringify(f), prev, fileUrl(req, p, f), now(), p.id).run();
+      return json({ ok: true, file: fileInfo({ epg_file: JSON.stringify(f) }) });
+    }
+    if (m === 'DELETE') {
+      await env.FILES.delete('epg:' + p.id);
+      const url = p.epg_url === ownUrl ? (p.epg_prev || '') : p.epg_url; // keep a URL typed in since
+      await env.DB.prepare('UPDATE library SET epg_file = NULL, epg_prev = NULL, epg_url = ?, updated = ? WHERE id = ?').bind(url, now(), p.id).run();
+      return json({ ok: true, epgUrl: url });
+    }
   }
   if ((r = path.match(/^\/api\/library\/([\w-]+)\/order$/)) && m === 'PUT') {
     const b = await body(req);
@@ -434,6 +475,22 @@ async function handleDevice(req, env, path) {
   return err(404, 'Not found');
 }
 
+// ------------------------------------------------------------------ uploaded guide files
+// Public but unguessable URL (new token per upload); TVs fetch it like any XMLTV link.
+async function serveGuide(req, env, path) {
+  const r = path.match(/^\/f\/epg\/([\w-]+)\/([\w-]+)\.xml(\.gz)?$/);
+  if (!r || (req.method !== 'GET' && req.method !== 'HEAD')) return new Response('Not found', { status: 404 });
+  await ensureSchema(env);
+  const p = await env.DB.prepare('SELECT epg_file FROM library WHERE id = ?').bind(r[1]).first();
+  const f = parseJson(p?.epg_file, null);
+  if (!f || !safeEqual(f.token, r[2])) return new Response('Not found', { status: 404 });
+  const obj = await env.FILES.getWithMetadata('epg:' + r[1], { type: 'stream' });
+  if (!obj.value) return new Response('Not found', { status: 404 });
+  return new Response(req.method === 'HEAD' ? null : obj.value, { headers: {
+    'content-type': f.gz ? 'application/gzip' : 'application/xml', 'content-length': String(f.size),
+    'cache-control': 'private, max-age=300', 'last-modified': new Date(f.at).toUTCString(), 'access-control-allow-origin': '*' } });
+}
+
 // ------------------------------------------------------------------ entry
 const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'authorization, content-type', 'access-control-allow-methods': 'GET, POST, OPTIONS' };
 
@@ -450,6 +507,7 @@ export default {
         for (const [k, v] of Object.entries(CORS)) res.headers.set(k, v);
         return res;
       }
+      if (path.startsWith('/f/epg/')) return await serveGuide(req, env, path);
       if (path.startsWith('/api/auth/')) return await handleAuth(req, env, path);
       if (path.startsWith('/api/')) return await handleAdmin(req, env, path);
       const page = PAGES[path] || (req.method === 'GET' && !path.includes('.') ? PAGES['/'] : null);

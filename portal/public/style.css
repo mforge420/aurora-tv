@@ -126,3 +126,11 @@ label.f span span { display: inline; font-weight: 500; }
 .seg button.on { background: var(--s3); color: var(--t); }
 .seg button:hover:not(.on) { color: var(--t); }
 .cat.leaving { opacity: .35; transition: opacity .3s; }
+/* guide file upload */
+.pill.warn { background: rgba(251,191,36,.14); color: var(--warn); }
+.gf { display: flex; flex-direction: column; gap: 4px; padding: 14px; margin-top: 14px; }
+.drop { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 14px; padding: 26px 16px; border: 2px dashed var(--line2); border-radius: 14px; cursor: pointer; text-align: center; transition: border-color .15s, background .15s; }
+.drop svg { width: 28px; height: 28px; color: var(--a); }
+.drop:hover, .drop.over { border-color: var(--a); background: rgba(139,156,255,.08); }
+.drop.busy { pointer-events: none; opacity: .6; }
+.btn.ghost.danger { color: #ff8b96; }

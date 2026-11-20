@@ -10,6 +10,7 @@ const I = {
   up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>',
   msg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
   list: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
+  guide2: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>',
   eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
   power: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0M12 2v10"/></svg>',
 };
@@ -139,6 +140,7 @@ async function deviceView(id) {
     document.getElementById('addpl').onclick = () => choosePlaylistsDialog(x);
     for (const b of document.querySelectorAll('[data-edit]')) b.onclick = () => playlistDialog(x.playlists.find((p) => p.id === b.dataset.edit));
     for (const b of document.querySelectorAll('[data-cats]')) b.onclick = () => (location.hash = '#/playlist/' + b.dataset.cats);
+    for (const b of document.querySelectorAll('[data-guide]')) b.onclick = () => guideFileDialog(x.playlists.find((p) => p.id === b.dataset.guide));
     for (const b of document.querySelectorAll('[data-del]')) b.onclick = async () => {
       const p = x.playlists.find((v) => v.id === b.dataset.del);
       if (!confirm(`Take “${p.name || 'this playlist'}” off ${x.name}? It stays in your playlists for other TVs.`)) return;
@@ -174,8 +176,8 @@ function plRow(p, r, x) {
   const state = !r ? '<span class="pill">Waiting for the TV</span>' : r.error ? `<span class="pill bad">${esc(r.error)}</span>` : '<span class="pill ok">Loaded</span>';
   const exp = r?.expires ? `<span class="pill">Expires ${new Date(r.expires).toLocaleDateString()}</span>` : '';
   return `<div class="pl"><div class="pl-main"><b>${esc(p.name || (p.type === 'xtream' ? p.server : 'Playlist'))}</b><div class="small muted">${p.type === 'xtream' ? 'Xtream Codes' : 'M3U'} · ${where}</div>
-    <div class="pl-stats">${state}${stats}${exp}${hiddenPill(p)}${r?.epgError ? `<span class="pill bad">Guide: ${esc(r.epgError)}</span>` : ''}</div></div>
-    ${activeEl}<button class="btn sm" data-cats="${esc(p.id)}">Categories</button><button class="btn sm" data-edit="${esc(p.id)}">Edit</button><button class="btn sm ghost" data-del="${esc(p.id)}" aria-label="Take off this TV" title="Take off this TV">✕</button></div>`;
+    <div class="pl-stats">${state}${stats}${exp}${hiddenPill(p)}${guidePill(p)}${r?.epgError ? `<span class="pill bad">Guide: ${esc(r.epgError)}</span>` : ''}</div></div>
+    ${activeEl}<button class="btn sm" data-guide="${esc(p.id)}">Guide file</button><button class="btn sm" data-cats="${esc(p.id)}">Categories</button><button class="btn sm" data-edit="${esc(p.id)}">Edit</button><button class="btn sm ghost" data-del="${esc(p.id)}" aria-label="Take off this TV" title="Take off this TV">✕</button></div>`;
 }
 
 // ------------------------------------------------------------------ dialogs
@@ -201,6 +203,15 @@ function pairDialog() {
   };
 }
 const hiddenOf = (p) => (p.hidden?.live?.length || 0) + (p.hidden?.movies?.length || 0) + (p.hidden?.series?.length || 0);
+const fmtWhen = (t) => new Date(t).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+const fmtMB = (n) => (n / 1048576).toFixed(1) + ' MB';
+function guidePill(p) {
+  const f = p.epgFile; if (!f) return '';
+  if (!String(p.epgUrl || '').includes('/f/epg/')) return '<span class="pill">Guide file not in use</span>';
+  if (f.to && f.to < Date.now()) return '<span class="pill bad">Guide file ran out — upload a new one</span>';
+  if (f.to && f.to < Date.now() + 24 * 3600e3) return `<span class="pill warn">Guide file ends ${esc(fmtWhen(f.to))}</span>`;
+  return `<span class="pill ok">Guide file${f.to ? ' until ' + esc(fmtWhen(f.to)) : ''}</span>`;
+}
 const hiddenPill = (p) => (hiddenOf(p) ? `<span class="pill">${hiddenOf(p)} categor${hiddenOf(p) > 1 ? 'ies' : 'y'} hidden</span>` : '');
 
 /** Add or edit a shared playlist; tick the TVs that get it */
@@ -258,6 +269,88 @@ async function choosePlaylistsDialog(x) {
   };
 }
 
+/** Read an XMLTV file in the browser: channel count + first/last programme time. Returns a gzip Blob to upload. */
+async function inspectGuide(file, onProgress) {
+  const head = new Uint8Array(await file.slice(0, 2).arrayBuffer());
+  const gz = head[0] === 0x1f && head[1] === 0x8b;
+  let stream = file.stream();
+  if (gz) stream = stream.pipeThrough(new DecompressionStream('gzip'));
+  const reader = stream.pipeThrough(new TextDecoderStream()).getReader();
+  let tail = '', channels = 0, from = Infinity, to = -Infinity, read = 0, total = gz ? file.size * 7 : file.size, first = true;
+  const re = /<channel\s|start="(\d{14})\s*([+-]\d{4})?/g;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (first) { if (!value.trimStart().startsWith('<')) throw new Error("That doesn't look like a TV guide file."); first = false; }
+    read += value.length; onProgress?.(Math.min(99, Math.round((read / total) * 100)));
+    const text = tail + value;
+    let m; re.lastIndex = 0;
+    const seen = tail.length; // matches lying wholly inside the carried-over tail were counted last time
+    while ((m = re.exec(text))) {
+      if (m.index + m[0].length <= seen) continue;
+      if (!m[1]) { channels++; continue; }
+      const d = m[1], z = m[2] || '+0000';
+      const t = Date.UTC(+d.slice(0, 4), +d.slice(4, 6) - 1, +d.slice(6, 8), +d.slice(8, 10), +d.slice(10, 12)) - (z[0] === '-' ? -1 : 1) * (+z.slice(1, 3) * 60 + +z.slice(3)) * 60e3;
+      if (t < from) from = t; if (t > to) to = t;
+    }
+    tail = text.slice(-40); // a tag cut between chunks is completed by the next chunk
+  }
+  if (!Number.isFinite(from)) throw new Error('No programmes found in this file.');
+  const blob = gz ? file : await new Response(file.stream().pipeThrough(new CompressionStream('gzip'))).blob();
+  return { blob, channels, from, to, gz: true };
+}
+
+async function guideFileDialog(p) {
+  const L = await api('/api/library');
+  p = L.playlists.find((x) => x.id === p.id) || p;
+  const f = p.epgFile;
+  const inUse = String(p.epgUrl || '').includes('/f/epg/');
+  const d = dialog(`<div><h2>TV guide file · ${esc(p.name || 'Playlist')}</h2>
+    <p class="muted small" style="margin-top:6px">Upload a guide file (.xml.gz or .xml, up to 25 MB), e.g. from myepg.top. The TVs using this playlist download it automatically. Guide files only cover a few days, so upload a fresh one before it runs out.</p>
+    ${f ? `<div class="card gf"><b>${esc(f.name)}</b><span class="small muted">${fmtMB(f.size)} · uploaded ${ago(f.at)}${f.channels ? ` · ${f.channels.toLocaleString()} channels` : ''}</span>
+      ${f.from ? `<span class="small">Covers <b>${esc(fmtWhen(f.from))}</b> → <b>${esc(fmtWhen(f.to))}</b></span>` : ''}
+      <div class="pl-stats">${guidePill(p)}</div></div>` : ''}
+    <label class="drop" id="drop"><input type="file" id="file" accept=".gz,.xml,.xmltv,application/gzip,application/xml,text/xml" hidden>
+      ${I.guide2}<b>${f ? 'Upload a newer file' : 'Choose a guide file'}</b><span class="small muted">or drop it here</span></label>
+    <div class="small" id="st" style="min-height:20px;margin-top:10px"></div>
+    <div class="row end">${f ? '<button class="btn ghost danger" id="rm">Remove file</button>' : ''}<button class="btn ghost" id="close">Close</button></div></div>`);
+  const st = d.querySelector('#st'), input = d.querySelector('#file'), drop = d.querySelector('#drop');
+  const say = (t, bad) => { st.textContent = t; st.style.color = bad ? 'var(--bad)' : 'var(--t2)'; };
+  d.querySelector('#close').onclick = () => d.close();
+  d.querySelector('#rm')?.addEventListener('click', async () => {
+    if (!confirm(`Remove the guide file from “${p.name}”?${inUse ? ' The playlist goes back to the guide it used before.' : ''}`)) return;
+    try { await api(`/api/library/${p.id}/epgfile`, { method: 'DELETE' }); d.close(); toast('Guide file removed'); route(); } catch (e) { say(e.message, true); }
+  });
+  const upload = async (file) => {
+    if (!file) return;
+    drop.classList.add('busy');
+    try {
+      say('Reading the file…');
+      const info = await inspectGuide(file, (pc) => say(`Reading the file… ${pc}%`));
+      if (info.blob.size > 25 * 1048576) throw new Error(`Even compressed the file is ${fmtMB(info.blob.size)}; the limit is 25 MB.`);
+      if (info.to < Date.now()) throw new Error(`This file ended ${fmtWhen(info.to)}, so it has no current programmes. Download a fresh one.`);
+      await new Promise((resolve, reject) => {
+        const x = new XMLHttpRequest();
+        x.open('PUT', `/api/library/${p.id}/epgfile`);
+        x.setRequestHeader('content-type', 'application/octet-stream');
+        x.setRequestHeader('x-name', file.name.replace(/[^\w.\- ]+/g, '_').slice(0, 100));
+        x.setRequestHeader('x-channels', String(info.channels)); x.setRequestHeader('x-from', String(info.from)); x.setRequestHeader('x-to', String(info.to));
+        x.upload.onprogress = (e) => e.lengthComputable && say(`Uploading… ${Math.round((e.loaded / e.total) * 100)}%`);
+        x.onload = () => { let j = {}; try { j = JSON.parse(x.responseText); } catch {} x.status < 300 ? resolve(j) : reject(new Error(j.error || 'Upload failed (' + x.status + ')')); };
+        x.onerror = () => reject(new Error('Upload failed — check your connection'));
+        x.send(info.blob);
+      });
+      d.close();
+      toast(`Guide uploaded · ${info.channels.toLocaleString()} channels until ${fmtWhen(info.to)} — the TVs load it within a minute`);
+      route();
+    } catch (e) { say(e.message, true); drop.classList.remove('busy'); }
+  };
+  input.onchange = () => upload(input.files[0]);
+  drop.ondragover = (e) => { e.preventDefault(); drop.classList.add('over'); };
+  drop.ondragleave = () => drop.classList.remove('over');
+  drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove('over'); upload(e.dataTransfer.files[0]); };
+}
+
 // ------------------------------------------------------------------ playlist library
 async function libraryView() {
   const L = await api('/api/library');
@@ -266,10 +359,11 @@ async function libraryView() {
     <button class="btn primary" id="add">${I.plus}Add playlist</button></div>
     ${L.playlists.length ? `<div class="card sec">${L.playlists.map((p) => `<div class="pl">
       <div class="pl-main"><b>${esc(p.name || 'Playlist')}</b><div class="small muted">${p.type === 'xtream' ? `Xtream Codes · ${esc(p.server)} · ${esc(p.user)}` : 'M3U · ' + esc(p.url)}</div>
-        <div class="pl-stats">${p.devices.length ? p.devices.map((id) => `<span class="pill tv">${I.tv}${esc(devName.get(id) || 'TV')}</span>`).join('') : '<span class="pill bad">Not on any TV</span>'}${hiddenPill(p)}</div></div>
-      <button class="btn sm" data-cats="${esc(p.id)}">Categories</button><button class="btn sm" data-edit="${esc(p.id)}">Edit</button><button class="btn sm ghost" data-del="${esc(p.id)}" title="Delete">✕</button></div>`).join('')}</div>`
+        <div class="pl-stats">${p.devices.length ? p.devices.map((id) => `<span class="pill tv">${I.tv}${esc(devName.get(id) || 'TV')}</span>`).join('') : '<span class="pill bad">Not on any TV</span>'}${hiddenPill(p)}${guidePill(p)}</div></div>
+      <button class="btn sm" data-guide="${esc(p.id)}">Guide file</button><button class="btn sm" data-cats="${esc(p.id)}">Categories</button><button class="btn sm" data-edit="${esc(p.id)}">Edit</button><button class="btn sm ghost" data-del="${esc(p.id)}" title="Delete">✕</button></div>`).join('')}</div>`
     : `<div class="card empty">${I.list}<h2>No playlists yet</h2><p class="muted" style="margin-top:6px">Click <b>Add playlist</b> to add your first one.</p></div>`}`;
   document.getElementById('add').onclick = () => playlistDialog(null, { devices: L.devices });
+  for (const b of document.querySelectorAll('[data-guide]')) b.onclick = () => guideFileDialog(L.playlists.find((p) => p.id === b.dataset.guide));
   for (const b of document.querySelectorAll('[data-cats]')) b.onclick = () => (location.hash = '#/playlist/' + b.dataset.cats);
   for (const b of document.querySelectorAll('[data-edit]')) b.onclick = () => playlistDialog(L.playlists.find((p) => p.id === b.dataset.edit), { devices: L.devices });
   for (const b of document.querySelectorAll('[data-del]')) b.onclick = async () => {

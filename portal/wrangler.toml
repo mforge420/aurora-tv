@@ -12,3 +12,8 @@ database_id = "b42412c2-92d9-4b3d-b0af-414f1c0ce447"
 
 # Secret (set with `wrangler secret put SETUP_KEY`): one-time key that lets the owner
 # create the admin password on first visit.
+
+# Uploaded TV guide files (.xml.gz, up to 25 MB each)
+[[kv_namespaces]]
+binding = "FILES"
+id = "00130a403a464f82a7c0b6860871a1c5"
