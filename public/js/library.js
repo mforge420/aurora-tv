@@ -388,7 +388,12 @@ class Library extends Emitter {
     if (!keys.length) return;
     const lower = new Map(keys.map((k) => [k.toLowerCase(), k]));
     const byName = new Map();
-    for (const [id, c] of Object.entries(this.epg.channels)) if (progs[id]) byName.set(normName(c.n), id);
+    for (const [id, c] of Object.entries(this.epg.channels)) {
+      if (!progs[id]) continue;
+      if (!byName.has(normName(c.n))) byName.set(normName(c.n), id);
+      // alternative display-names (often the playlist's exact channel name) win over the first
+      for (const n of c.a || []) byName.set(normName(n), id);
+    }
     for (const k of keys) if (!byName.has(normName(k))) byName.set(normName(k.replace(/\.[a-z]{2,3}$/i, '')), k);
     for (const s of this.sources) for (const ch of s._cat?.live || []) {
       let k = ch.epgId && (progs[ch.epgId] ? ch.epgId : lower.get(ch.epgId.toLowerCase()));

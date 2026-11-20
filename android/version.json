@@ -1,9 +1,8 @@
 {
-    "versionCode": 34,
-    "versionName": "1.0.33",
+    "versionCode": 35,
+    "versionName": "1.0.34",
     "url": "https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk",
     "notes": [
-        "Faster startup: the screen appears as soon as the playlist you're watching is loaded; other playlists and the TV guide load right after in the background",
-        "Fix: hiding or sorting categories on the website no longer makes the TV re-download its TV guide (and lose the guide link) on the next start"
+        "TV guide: channels are now matched on every name a guide gives them \u2014 guides from myepg.top / IPTVEditor match far more channels (200 \u2192 397 of 400 in testing)"
     ]
 }

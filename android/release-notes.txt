@@ -1,2 +1,1 @@
-Faster startup: the screen appears as soon as the playlist you're watching is loaded; other playlists and the TV guide load right after in the background
-Fix: hiding or sorting categories on the website no longer makes the TV re-download its TV guide (and lose the guide link) on the next start
+TV guide: channels are now matched on every name a guide gives them — guides from myepg.top / IPTVEditor match far more channels (200 → 397 of 400 in testing)

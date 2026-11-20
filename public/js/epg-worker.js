@@ -101,7 +101,9 @@ async function run(data) {
       if (!wantIds) return true;
       let v = wantCache.get(ch);
       if (v === undefined) {
-        v = wantIds.has(ch.toLowerCase()) || wantNames.has(normName(channels[ch]?.n || '')) ||
+        const c = channels[ch];
+        v = wantIds.has(ch.toLowerCase()) || wantNames.has(normName(c?.n || '')) ||
+          (c?.a || []).some((n) => wantNames.has(normName(n))) ||
           wantNames.has(normName(ch.replace(/\.[a-z]{2,3}$/i, '')));
         wantCache.set(ch, v);
       }
@@ -141,7 +143,17 @@ async function run(data) {
           const block = buf.slice(lt, end);
           const id = decode(attr(block.slice(0, block.indexOf('>')), 'id'));
           const icon = block.indexOf('<icon');
-          channels[id] = { n: inner(block, 'display-name'), i: icon > -1 ? decode(attr(block.slice(icon, block.indexOf('>', icon)), 'src')) : '' };
+          // every <display-name>: guides from editors like IPTVEditor put the playlist's own
+          // channel name ("UK| BBC ONE HD") in a second display-name
+          const names = []; let k = 0;
+          while ((k = block.indexOf('<display-name', k)) !== -1) {
+            const gt = block.indexOf('>', k), close = block.indexOf('</display-name>', gt);
+            if (gt === -1 || close === -1) break;
+            const n = decode(block.slice(gt + 1, close)).trim(); if (n) names.push(n);
+            k = close + 15;
+          }
+          channels[id] = { n: names[0] || '', i: icon > -1 ? decode(attr(block.slice(icon, block.indexOf('>', icon)), 'src')) : '' };
+          if (names.length > 1) channels[id].a = names.slice(1, 4);
           idx = end + 10;
         } else {
           const gt = buf.indexOf('>', lt);
