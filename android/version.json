@@ -1,8 +1,10 @@
 {
-    "versionCode": 35,
-    "versionName": "1.0.34",
+    "versionCode": 36,
+    "versionName": "1.0.35",
     "url": "https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk",
     "notes": [
-        "TV guide: channels are now matched on every name a guide gives them \u2014 guides from myepg.top / IPTVEditor match far more channels (200 \u2192 397 of 400 in testing)"
+        "Fix: crashes while a big TV guide (e.g. myepg.top) updates \u2014 guide data now uses about 4\u00d7 less memory",
+        "Only the TV guide of the playlist you're watching is kept in memory (switching playlists loads its guide)",
+        "Faster startup with large playlists: movies and series load just after the channel list appears"
     ]
 }

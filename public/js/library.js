@@ -31,7 +31,8 @@ class Library extends Emitter {
 
   /** Only small metadata goes to localStorage; catalogs (_cat) live in IndexedDB. */
   saveSources() {
-    const ok = store.set('sources', this.sources.map(({ _cat, content, ...meta }) => meta));
+    // runtime-only fields (_cat, _vodPending, …) are never persisted
+    const ok = store.set('sources', this.sources.map(({ content, ...meta }) => Object.fromEntries(Object.entries(meta).filter(([k]) => !k.startsWith('_')))));
     if (!ok) console.error('Could not save playlists to local storage');
   }
   xtream(src) {
@@ -49,24 +50,56 @@ class Library extends Emitter {
    */
   async init() {
     const t0 = performance.now();
-    const loadCat = async (s) => { const cat = await idb.get('cat:' + s.id); if (cat) s._cat = cat; };
     const a = this.activeId();
     const first = a === 'all' ? this.sources : this.sources.filter((s) => s.id === a);
-    await Promise.all(first.map(loadCat));
+    await Promise.all(first.map((s) => this.#loadLive(s)));
     this.rebuild();
     const boot = (this.diag.boot = { playlists: this.sources.length, firstScreenMs: Math.round(performance.now() - t0) });
     this.ready = (async () => {
       await new Promise((r) => setTimeout(r, 50)); // let the first screen paint
+      for (const s of first) await this.#loadVod(s);
+      this.rebuildVod();
+      boot.moviesMs = Math.round(performance.now() - t0);
       const rest = this.sources.filter((s) => !first.includes(s));
-      for (const s of rest) await loadCat(s);
+      for (const s of rest) { await this.#loadLive(s); await this.#loadVod(s); }
       // switched playlist while these were loading? show it properly now
       if (this.activeSources().some((s) => rest.includes(s))) this.rebuild(); else if (rest.length) this.#indexAll();
       boot.otherPlaylistsMs = Math.round(performance.now() - t0);
       await this.loadEpgFromCache();
       boot.guideCacheMs = Math.round(performance.now() - t0);
       this.backgroundRefresh();
+      // catalogs saved by older versions hold movies+series with the channels: split them once, later
+      setTimeout(() => this.#splitLegacy(), 30e3);
     })().catch((e) => console.error(e));
   }
+  // Catalogs are stored in two parts so startup only reads the live channels:
+  //   cat:<id> = { live, groupOrder, account, hasVod: true }   vod:<id> = { movies, series }
+  async #saveCat(src, cat) {
+    const { movies, series, ...rest } = cat;
+    await idb.set('vod:' + src.id, { movies, series });
+    await idb.set('cat:' + src.id, { ...rest, movies: [], series: [], hasVod: true });
+  }
+  async #loadLive(s) {
+    const c = await idb.get('cat:' + s.id);
+    if (!c) return;
+    s._vodPending = !!c.hasVod; s._legacy = !c.hasVod;
+    s._cat = c;
+  }
+  async #loadVod(s) {
+    if (!s._vodPending || !s._cat) return;
+    const v = await idb.get('vod:' + s.id);
+    if (v && s._cat) { s._cat.movies = v.movies || []; s._cat.series = v.series || []; }
+    s._vodPending = false;
+  }
+  async #splitLegacy() {
+    for (const s of this.sources) {
+      if (!s._legacy || !s._cat) continue;
+      try { await this.#saveCat(s, s._cat); s._legacy = false; } catch (e) { console.warn('split failed', e); }
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+  }
+  /** movies/series became available after startup */
+  rebuildVod() { this.rebuild({ vodOnly: true }); }
 
   async addSource(def, onStep, { activate = false } = {}) {
     const src = { id: uid(), name: def.name || 'Playlist', ...def, added: Date.now() };
@@ -85,7 +118,7 @@ class Library extends Emitter {
     this.sources = this.sources.filter((s) => s.id !== id);
     if (wasActive) settings.set('activeSource', this.sources[0]?.id || 'all');
     this.saveSources();
-    await idb.del('cat:' + id); await idb.del('epg:' + id);
+    await idb.del('cat:' + id); await idb.del('vod:' + id); await idb.del('epg:' + id);
     this.#xtreams.delete(id);
     this.rebuild();
     await this.loadEpgFromCache();
@@ -114,8 +147,8 @@ class Library extends Emitter {
     if (!cat.live.length && !cat.movies.length && !cat.series.length) throw new Error('Playlist is empty');
     src.updated = Date.now();
     src.counts = { live: cat.live.length, movies: cat.movies.length, series: cat.series.length };
-    src._cat = cat;
-    await idb.set('cat:' + src.id, cat);
+    src._cat = cat; src._vodPending = false; src._legacy = false;
+    await this.#saveCat(src, cat);
     this.saveSources();
     return src;
   }
@@ -193,9 +226,10 @@ class Library extends Emitter {
     settings.set('activeSource', id);
     this.rebuild();
     this.emit('active', id);
+    this.loadEpgFromCache().catch(() => {});
   }
 
-  rebuild() {
+  rebuild({ vodOnly = false } = {}) {
     const hidden = new Set(settings.get('hiddenGroups'));
     this.live = []; this.movies = []; this.series = [];
     this.byId.clear();
@@ -225,6 +259,7 @@ class Library extends Emitter {
     this.movieGroups = toList(mg);
     this.seriesGroups = toList(sg);
     this.#indexAll();
+    if (vodOnly) { this.emit('vod'); return; } // live lists unchanged: don't disturb the screen
     this.buildEpgIndex();
     this.emit('change');
   }
@@ -297,11 +332,16 @@ class Library extends Emitter {
   hasReminder(ch, start) { return this.reminders.some((r) => r.key === ch.id + '@' + start); }
 
   // ---------------- EPG ----------------
+  /** Guide data of the playlist(s) being watched only: holding every playlist's guide exhausts memory on TV boxes */
   async loadEpgFromCache() {
     const merged = { channels: {}, progs: {} };
-    for (const s of this.sources) {
+    this.epg = merged; // drop the previous guide first so old and new are never both in memory
+    for (const s of this.activeSources()) {
       const e = await idb.get('epg:' + s.id);
-      if (e) { Object.assign(merged.channels, e.channels); Object.assign(merged.progs, e.progs); }
+      if (!e) continue;
+      Object.assign(merged.channels, e.channels);
+      // v2: typed arrays + shared text table; v1 (older caches): plain arrays with the texts inline
+      for (const k in e.progs) merged.progs[k] = { a: e.progs[k], s: e.v === 2 ? e.strs : null };
     }
     this.epg = merged;
     this.buildEpgIndex();
@@ -318,10 +358,10 @@ class Library extends Emitter {
         const eh = settings.get('epgAutoRefreshHours');
         if (!force && s.epgUpdated && Date.now() - s.epgUpdated < eh * 3600e3) continue;
         try {
-          const data = await this.#parseEpg(s.epgUrl, (p) => { onProgress?.(p, s); this.emit('epg-status', { loading: true, ...p, source: s.name }); }, s);
-          if (!Object.keys(data.progs).length) throw new Error('The guide downloaded but had no programmes for your channels');
-          await idb.set('epg:' + s.id, data);
-          s.epgUpdated = Date.now(); s.epgCount = Object.keys(data.progs).length;
+          const res = await this.#parseEpg(s.epgUrl, (p) => { onProgress?.(p, s); this.emit('epg-status', { loading: true, ...p, source: s.name }); }, s);
+          if (!res.epgCount) throw new Error('The guide downloaded but had no programmes for your channels');
+          if (!res.saved) await idb.set('epg:' + s.id, { v: 2, channels: res.channels, strs: res.strs, progs: res.progs });
+          s.epgUpdated = Date.now(); s.epgCount = res.epgCount;
           s.epgError = '';
         } catch (e) {
           s.epgError = e.message;
@@ -353,12 +393,12 @@ class Library extends Emitter {
       w.onmessage = (ev) => {
         const d = ev.data;
         if (d.type === 'progress') onProgress?.(d);
-        else if (d.type === 'done') { w.terminate(); resolve({ channels: d.channels, progs: d.progs }); }
+        else if (d.type === 'done') { w.terminate(); resolve(d); }
         else if (d.type === 'error') { w.terminate(); reject(new Error(d.message)); }
       };
       w.onerror = (e) => { w.terminate(); reject(new Error(e.message || 'EPG worker error')); };
     });
-    const base = { from, to, wanted, uaHeader: settings.get('userAgent') };
+    const base = { from, to, wanted, uaHeader: settings.get('userAgent'), saveKey: src ? 'epg:' + src.id : null };
     if (isNative) {
       // Page fetches (through the app's native proxy) and feeds the worker chunk by chunk
       w.postMessage({ ...base, streamed: true });
@@ -411,28 +451,30 @@ class Library extends Emitter {
 
   /** Programme rows for a channel as objects in [from,to] */
   programmes(ch, from = -Infinity, to = Infinity) {
-    const a = this.epgIndex.get(ch.id);
-    if (!a) return [];
-    const sh = this.shift(), out = [];
+    const w = this.epgIndex.get(ch.id);
+    if (!w) return [];
+    const a = w.a, S = w.s, sh = this.shift(), out = [];
+    const t = (i) => (S ? S[a[i]] : a[i]) || '';
     for (let i = 0; i < a.length; i += 6) {
       const s = a[i] + sh, e = a[i + 1] + sh;
       if (e <= from) continue;
       if (s >= to) break;
-      out.push({ start: s, stop: e, title: a[i + 2], desc: a[i + 3], cat: a[i + 4], ep: a[i + 5] });
+      out.push({ start: s, stop: e, title: t(i + 2), desc: t(i + 3), cat: t(i + 4), ep: t(i + 5) });
     }
     return out;
   }
   /** Current & next programme (binary search) */
   nowNext(ch, t = Date.now()) {
-    const a = this.epgIndex.get(ch.id);
-    if (!a) return [null, null];
-    const sh = this.shift();
+    const w = this.epgIndex.get(ch.id);
+    if (!w) return [null, null];
+    const a = w.a, S = w.s, sh = this.shift();
+    const tx = (i) => (S ? S[a[i]] : a[i]) || '';
     let lo = 0, hi = a.length / 6 - 1, found = -1;
     while (lo <= hi) {
       const mid = (lo + hi) >> 1, s = a[mid * 6] + sh;
       if (s <= t) { found = mid; lo = mid + 1; } else hi = mid - 1;
     }
-    const row = (i) => i >= 0 && i * 6 < a.length ? { start: a[i * 6] + sh, stop: a[i * 6 + 1] + sh, title: a[i * 6 + 2], desc: a[i * 6 + 3], cat: a[i * 6 + 4], ep: a[i * 6 + 5] } : null;
+    const row = (i) => i >= 0 && i * 6 < a.length ? { start: a[i * 6] + sh, stop: a[i * 6 + 1] + sh, title: tx(i * 6 + 2), desc: tx(i * 6 + 3), cat: tx(i * 6 + 4), ep: tx(i * 6 + 5) } : null;
     let now = row(found);
     if (now && now.stop <= t) now = null;
     return [now, row(found + 1)];

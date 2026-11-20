@@ -163,7 +163,7 @@ class Remote extends Emitter {
   async #sendCategories() {
     for (const src of lib.sources) {
       const c = src._cat;
-      if (!src.remoteId || !c || !src.updated || src.catsSent === src.updated) continue;
+      if (!src.remoteId || !c || src._vodPending || !src.updated || src.catsSent === src.updated) continue;
       const names = (list) => [...new Set(list.map((x) => x.group).filter(Boolean))];
       const order = c.groupOrder || {};
       const pick = (k, list) => { const seen = names(list); const ord = (order[k] || []).filter((g) => seen.includes(g)); return [...ord, ...seen.filter((g) => !ord.includes(g))]; };

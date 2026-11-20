@@ -100,12 +100,13 @@ export default function vodView(root, { name, arg }) {
   gl.setItems(groupsData, Math.max(0, groupsData.findIndex((g) => g.name === group)));
   select(group, true);
   if (arg?.open) { const it = lib.byId.get(arg.open); if (it) setTimeout(() => (isSeries ? openSeries(it) : openMovie(it)), 50); }
-  const off = lib.on('change', () => { gl.setItems(groups(), gl.index); select(group, true); });
+  const onLib = () => { gl.setItems(groups(), gl.index); select(group, true); };
+  const off = lib.on('change', onLib), offVod = lib.on('vod', onLib);
 
   return {
     focus: () => (gridEl.querySelector('.poster') ? nav.focus(gridEl._last?.isConnected ? gridEl._last : gridEl.querySelector('.poster')) : gl.focus()),
     back: () => { if (gridEl.contains(document.activeElement)) { gl.focus(); return true; } return false; },
-    destroy: off,
+    destroy: () => { off(); offVod(); },
   };
 }
 

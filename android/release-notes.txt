@@ -1,1 +1,3 @@
-TV guide: channels are now matched on every name a guide gives them — guides from myepg.top / IPTVEditor match far more channels (200 → 397 of 400 in testing)
+Fix: crashes while a big TV guide (e.g. myepg.top) updates — guide data now uses about 4× less memory
+Only the TV guide of the playlist you're watching is kept in memory (switching playlists loads its guide)
+Faster startup with large playlists: movies and series load just after the channel list appears

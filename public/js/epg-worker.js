@@ -1,6 +1,11 @@
 // Streaming XMLTV parser running in a Web Worker.
 // Input: { url, fetchUrl, window: {from, to}, wanted: [ids] | null }
-// Output: { channels: {id:{n,i}}, progs: {id: [start, stop, title, desc, category, episode, ...flat]} }
+// Output (v2, compact): { v: 2, channels: {id:{n,i,a?}}, strs: [text...],
+//   progs: {id: Float64Array[start, stop, titleIdx, descIdx, categoryIdx, episodeIdx, ...]} }
+// Every text is stored once in `strs` (local stations repeat the same shows), and times/indices
+// live in typed arrays: several times less memory than plain arrays of strings on TV boxes.
+// With `saveKey` the worker writes the result to IndexedDB itself and only reports counts back,
+// so the page never holds a second copy of a big guide.
 
 function parseTime(s) {
   // 20240101123000 +0100
@@ -65,6 +70,20 @@ self.onmessage = (ev) => {
   run(d);
 };
 
+function idbPut(key, value) {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('aurora-tv', 1);
+    req.onupgradeneeded = () => req.result.createObjectStore('kv');
+    req.onerror = () => reject(req.error);
+    req.onsuccess = () => {
+      const db = req.result, t = db.transaction('kv', 'readwrite');
+      t.objectStore('kv').put(value, key);
+      t.oncomplete = () => { db.close(); resolve(); };
+      t.onerror = t.onabort = () => { db.close(); reject(t.error || new Error('Could not save the guide')); };
+    };
+  });
+}
+
 async function run(data) {
   const { fetchUrl, from, to, uaHeader } = data;
   const wantIds = data.wanted ? new Set(data.wanted.ids) : null;
@@ -96,6 +115,8 @@ async function run(data) {
     const reader = stream.pipeThrough(new TextDecoderStream()).getReader();
 
     const channels = {}, progs = {};
+    const strs = [''], strIdx = new Map([['', 0]]);
+    const intern = (t) => { let i = strIdx.get(t); if (i === undefined) { i = strs.length; strs.push(t); strIdx.set(t, i); } return i; };
     const wantCache = new Map();
     const wanted = (ch) => {
       if (!wantIds) return true;
@@ -133,7 +154,7 @@ async function run(data) {
               const p = ep.split('.'); const s = parseInt(p[0], 10), e = parseInt(p[1], 10);
               ep = (isNaN(s) ? '' : 'S' + (s + 1)) + (isNaN(e) ? '' : 'E' + (e + 1));
             }
-            arr.push(start, stop || start + 3600e3, inner(block, 'title'), inner(block, 'desc').slice(0, 320), inner(block, 'category'), ep || inner(block, 'sub-title'));
+            arr.push(start, stop || start + 3600e3, intern(inner(block, 'title')), intern(inner(block, 'desc').slice(0, 220)), intern(inner(block, 'category')), intern(ep || inner(block, 'sub-title')));
             count++;
           }
           idx = end + 12;
@@ -166,20 +187,29 @@ async function run(data) {
       if (now - lastPost > 250) { lastPost = now; self.postMessage({ type: 'progress', loaded, total, count }); }
       if (done) break;
     }
-    // sort each channel's programmes by start time
+    // sort each channel's programmes by start time, drop duplicates, pack into a typed array
     for (const k in progs) {
-      const a = progs[k];
-      const rows = [];
-      for (let i = 0; i < a.length; i += 6) rows.push(a.slice(i, i + 6));
-      rows.sort((x, y) => x[0] - y[0]);
-      // drop overlaps/duplicates
-      const flat = [];
-      let lastStart = -1;
-      for (const r of rows) { if (r[0] === lastStart) continue; lastStart = r[0]; flat.push(...r); }
-      progs[k] = flat;
+      const a = progs[k], n = a.length / 6;
+      const order = Array.from({ length: n }, (_, i) => i).sort((x, y) => a[x * 6] - a[y * 6]);
+      const out = new Float64Array(n * 6);
+      let w = 0, lastStart = -1;
+      for (const r of order) {
+        if (a[r * 6] === lastStart) continue;
+        lastStart = a[r * 6];
+        for (let j = 0; j < 6; j++) out[w + j] = a[r * 6 + j];
+        w += 6;
+      }
+      progs[k] = w === out.length ? out : out.slice(0, w);
     }
     for (const k in channels) if (!progs[k]) delete channels[k];
-    self.postMessage({ type: 'done', channels, progs, count });
+    const result = { v: 2, channels, strs, progs };
+    const epgCount = Object.keys(progs).length;
+    if (data.saveKey && epgCount) {
+      await idbPut(data.saveKey, result);
+      self.postMessage({ type: 'done', saved: true, count, epgCount });
+    } else {
+      self.postMessage({ type: 'done', count, epgCount, ...result }, Object.values(progs).map((x) => x.buffer));
+    }
   } catch (e) {
     self.postMessage({ type: 'error', message: e.message || String(e) });
   }

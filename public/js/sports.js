@@ -60,19 +60,20 @@ export async function findSportsEvents() {
     // programmes; event channels are handled separately (their guide is usually filler).
     const isEventCh = EVENT_GROUP.test(ch.group) || /\b(v|vs\.?)\b/i.test(ch.name);
     const chSport = isEventCh ? null : sportOf(chText);
-    const a = lib.epgIndex.get(ch.id);
-    if (!a) continue;
+    const w = lib.epgIndex.get(ch.id);
+    if (!w) continue;
+    const a = w.a, S = w.s, tx = (i) => (S ? S[a[i]] : a[i]) || '';
     const sh = lib.shift();
     for (let k = 0; k < a.length; k += 6) {
       const stop = a[k + 1] + sh;
       if (stop <= now) continue;
       const start = a[k] + sh;
       if (start >= to) break;
-      const title = a[k + 2] || '', cat = a[k + 4] || '', epn = a[k + 5] || '';
+      const title = tx(k + 2), cat = tx(k + 4), epn = tx(k + 5), desc = tx(k + 3);
       const text = `${title} ${cat} ${epn}`;
       // cheap pre-check before the full classifier (most programmes aren't sport)
-      if (!chSport && !ANY_SPORT.test(text) && !(a[k + 3] && EVENTISH.test(title))) continue;
-      const p = { start, stop, title, desc: a[k + 3], cat, ep: epn };
+      if (!chSport && !ANY_SPORT.test(text) && !(desc && EVENTISH.test(title))) continue;
+      const p = { start, stop, title, desc, cat, ep: epn };
       let sport = sportOf(text);
       // fall back to the description, then to a sport-specific channel name
       if (isEventCh && !sportOf(text)) continue;
