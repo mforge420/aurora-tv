@@ -1,10 +1,10 @@
 {
-    "versionCode": 36,
-    "versionName": "1.0.35",
+    "versionCode": 37,
+    "versionName": "1.0.36",
     "url": "https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk",
     "notes": [
-        "Fix: crashes while a big TV guide (e.g. myepg.top) updates \u2014 guide data now uses about 4\u00d7 less memory",
-        "Only the TV guide of the playlist you're watching is kept in memory (switching playlists loads its guide)",
-        "Faster startup with large playlists: movies and series load just after the channel list appears"
+        "TV guide: the highlight stays near the left as you move right \u2014 the guide scrolls with you instead of the cursor running to the far right",
+        "Moving up and down no longer shifts the guide sideways; Left back to \"now\" returns to the normal position",
+        "Update check now sees new versions straight away"
     ]
 }

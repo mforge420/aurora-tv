@@ -1,3 +1,3 @@
-Fix: crashes while a big TV guide (e.g. myepg.top) updates — guide data now uses about 4× less memory
-Only the TV guide of the playlist you're watching is kept in memory (switching playlists loads its guide)
-Faster startup with large playlists: movies and series load just after the channel list appears
+TV guide: the highlight stays near the left as you move right — the guide scrolls with you instead of the cursor running to the far right
+Moving up and down no longer shifts the guide sideways; Left back to "now" returns to the normal position
+Update check now sees new versions straight away

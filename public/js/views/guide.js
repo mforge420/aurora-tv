@@ -212,13 +212,23 @@ export default function guideView(root, { arg, go }) {
   }
 
   // ------- movement -------
-  function ensureVisible() {
-    const sp = span();
+  /**
+   * Horizontal moves keep the highlight near the left like TiviMate: the programme on now sits at the
+   * normal "now" position, later programmes are scrolled to the left edge once they start past ~30% of
+   * the width. Vertical moves don't shift the timeline (no side-to-side jumping between rows).
+   */
+  function ensureVisible(horizontal = false) {
+    const sp = span(), now = Date.now();
     const p = focusedProg();
     const ps = p ? p.start : focusT;
-    if (ps < viewStart || focusT < viewStart) viewStart = floorSlot(Math.max(ps, focusT - sp + SLOT, minT()));
-    if (focusT >= viewStart + sp) viewStart = floorSlot(focusT - sp / 3);
-    if (p && p.start >= viewStart + sp) viewStart = floorSlot(p.start);
+    if (horizontal && p) {
+      if (p.start <= now && p.stop > now) viewStart = floorSlot(now - 30 * 60e3);
+      else if (p.start < viewStart) viewStart = floorSlot(Math.max(p.start, focusT - sp + SLOT, minT()));
+      else if (p.start > viewStart + sp * 0.3) viewStart = floorSlot(p.start);
+    } else {
+      if (ps < viewStart && focusT < viewStart) viewStart = floorSlot(Math.max(ps, focusT - sp + SLOT, minT()));
+      if (focusT >= viewStart + sp) viewStart = floorSlot(focusT - SLOT);
+    }
     centerRow();
   }
   /** keep the selected row in the middle (row 3 of 5); clamps at the top and bottom of the list */
@@ -263,10 +273,10 @@ export default function guideView(root, { arg, go }) {
       const pp = progAt(rows[rowIdx], t);
       focusT = pp ? Math.max(pp.start, Math.min(t, pp.start)) : floorSlot(t);
     }
-    after(); return true;
+    after(true); return true;
   }
   function jumpTo(t, keepFocus = false) { focusT = t; viewStart = floorSlot(t - 30 * 60e3); after(); if (!keepFocus) body.focus(); }
-  function after() { ensureVisible(); draw(); updateDetail(); schedulePreview(); }
+  function after(horizontal = false) { ensureVisible(horizontal); draw(); updateDetail(); schedulePreview(); }
 
   let pvT;
   function schedulePreview() {
