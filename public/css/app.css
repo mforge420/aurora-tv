@@ -1075,3 +1075,4 @@ html.g-panel-open:not(.native) #player[data-mode="preview"] { visibility: hidden
 .g-p.empty:not(.focus) .g-pt { font-weight: 500; color: var(--text-2); }
 :root[data-theme="azure"] .g-p.empty.live:not(.focus) { background: rgba(60, 120, 255, .38); }
 :root[data-theme="azure"] .g-p.empty.past:not(.focus) { background: rgba(4, 16, 92, .35); }
+.g-p.tiny { padding: 0; }

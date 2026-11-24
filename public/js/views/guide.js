@@ -176,12 +176,15 @@ export default function guideView(root, { arg, go }) {
       for (const p of ps) {
         const x = Math.max(0, (p.start - viewStart) * pxPerMs), x2 = Math.min(W, (p.stop - viewStart) * pxPerMs);
         // the first block of each row also names the channel
-        const chLabel = first && x2 - x > labelMin ? `<span class="g-chl">${esc(shortName(ch))}</span>` : '';
-        first = false;
+        const wd = x2 - x;
+        const chLabel = first && wd > labelMin ? `<span class="g-chl">${esc(shortName(ch))}</span>` : '';
+        if (wd > rem(2.4)) first = false; // a sliver (e.g. a 2-minute filler) doesn't take the channel label
+        const tiny = wd < rem(2.4);
         const isFocus = sel && fp && p.start === fp.start;
         const live = p.start <= now && p.stop > now, past = p.stop <= now;
         const cu = past && lib.canCatchup(ch, p);
         const remind = !past && !live && lib.hasReminder(ch, p.start);
+        if (tiny) { html += `<div class="g-p tiny${isFocus ? ' focus' : ''}${live ? ' live' : ''}${past ? ' past' : ''}" style="left:${x}px;width:${Math.max(0, wd)}px" data-r="${i}" data-t="${p.start}"></div>`; continue; }
         html += `<div class="g-p${p.placeholder ? ' empty' : ''}${isFocus ? ' focus' : ''}${live ? ' live' : ''}${past ? ' past' : ''}" style="left:${x}px;width:${Math.max(0, x2 - x)}px" data-r="${i}" data-t="${p.start}">
           ${chLabel}<span class="g-pt">${cu ? icon('rewind', 'cu') : ''}${remind ? icon('bell', 'rem') : ''}${esc(p.title)}</span><span class="g-ps">${fmtClock(p.start)} – ${fmtClock(p.stop)}</span>
           ${live ? `<i class="g-prog" style="width:${clamp((now - p.start) / (p.stop - p.start), 0, 1) * 100}%"></i>` : ''}</div>`;
@@ -221,9 +224,12 @@ export default function guideView(root, { arg, go }) {
     const sp = span(), now = Date.now();
     const p = focusedProg();
     const ps = p ? p.start : focusT;
-    if (horizontal && p) {
-      if (p.start <= now && p.stop > now) viewStart = floorSlot(now - 30 * 60e3);
-      else if (p.start < viewStart) viewStart = floorSlot(Math.max(p.start, focusT - sp + SLOT, minT()));
+    const home = floorSlot(now - 30 * 60e3);
+    if (p && p.start <= now && p.stop > now) {
+      // on what's airing now: always the normal "now" view (also corrects a guide left open for hours)
+      viewStart = home;
+    } else if (horizontal && p) {
+      if (p.start < viewStart) viewStart = floorSlot(Math.max(p.start, focusT - sp + SLOT, minT()));
       else if (p.start > viewStart + sp * 0.3) viewStart = floorSlot(p.start);
     } else {
       if (ps < viewStart && focusT < viewStart) viewStart = floorSlot(Math.max(ps, focusT - sp + SLOT, minT()));
@@ -353,7 +359,18 @@ export default function guideView(root, { arg, go }) {
   const startCh = arg?.channel || (player.kind === 'live' ? player.item?.id : null);
   setGroup(group, startCh);
   requestAnimationFrame(() => { ensureVisible(); draw(); if (player.mode !== 'preview') schedulePreview(); });
-  const tick = setInterval(draw, 30000);
+  // follow the clock: if the highlight was on "now", keep it on now as programmes end and time passes
+  let lastNow = Date.now();
+  const followClock = () => {
+    const now = Date.now(), p = focusedProg();
+    const wasNow = focusT >= lastNow - 60e3 && focusT <= lastNow + 60e3 || (p && p.start <= lastNow && p.stop > lastNow);
+    lastNow = now;
+    if (wasNow) { focusT = now; ensureVisible(); updateDetail(); }
+    draw();
+  };
+  const tick = setInterval(followClock, 30000);
+  const onVis = () => { if (!document.hidden) followClock(); };
+  document.addEventListener('visibilitychange', onVis);
   const offEpg = lib.on('epg', () => { draw(); updateDetail(); });
   const onPl = () => draw();
   window.addEventListener('player-change', onPl);
@@ -367,7 +384,7 @@ export default function guideView(root, { arg, go }) {
       if (Math.abs(focusT - Date.now()) > SLOT) { jumpTo(Date.now()); return true; }
       return false;
     },
-    destroy: () => { document.documentElement.classList.remove('g-panel-open'); clearInterval(tick); clearTimeout(pvT); ro.disconnect(); offEpg(); window.removeEventListener('player-change', onPl); player.onExit = null; },
+    destroy: () => { document.documentElement.classList.remove('g-panel-open'); clearInterval(tick); document.removeEventListener('visibilitychange', onVis); clearTimeout(pvT); ro.disconnect(); offEpg(); window.removeEventListener('player-change', onPl); player.onExit = null; },
   };
 }
 function floorSlot(t) { return Math.floor(t / SLOT) * SLOT; }

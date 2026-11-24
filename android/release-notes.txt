@@ -1,3 +1,3 @@
-TV guide: the highlight stays near the left as you move right — the guide scrolls with you instead of the cursor running to the far right
-Moving up and down no longer shifts the guide sideways; Left back to "now" returns to the normal position
-Update check now sees new versions straight away
+TV guide: on what's airing now the guide always shows the normal "now" view — it no longer stays stuck at the time it was opened
+The guide follows the clock while it's open (and after the TV wakes or you come back from fullscreen)
+Very short programmes (e.g. 2-minute fillers) no longer show cut-off text
