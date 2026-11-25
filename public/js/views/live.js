@@ -128,9 +128,12 @@ export default function liveView(root, { go }) {
   async function contextMenu(ch) {
     if (!ch) return;
     const fav = lib.isFav(ch.id);
+    const inRecents = lib.recents.includes(ch.id);
     const c = await choose(ch.name, [
       { id: 'play', label: 'Watch fullscreen' },
       { id: 'fav', label: fav ? 'Remove from favorites' : 'Add to favorites' },
+      ...(inRecents ? [{ id: 'unrecent', label: 'Remove from recently watched' }] : []),
+      ...(group === RECENT_GROUP && lib.recents.length ? [{ id: 'clearrecent', label: 'Clear recently watched' }] : []),
       { id: 'guide', label: 'Open in TV guide' },
       { id: 'multi', label: 'Add to multi-view' },
       { id: 'hide', label: `Hide group “${ch.group}”` },
@@ -138,6 +141,13 @@ export default function liveView(root, { go }) {
     if (!c) return;
     if (c.id === 'play') player.playChannel(ch, { list: channels });
     if (c.id === 'fav') { lib.toggleFav(ch.id); cl.refresh(); updateInfo(ch); gl.refresh(); }
+    if (c.id === 'unrecent' || c.id === 'clearrecent') {
+      const i = cl.index;
+      c.id === 'unrecent' ? lib.removeRecent(ch.id) : lib.clearRecents();
+      gl.setItems(groupsList(), gl.index);
+      if (group === RECENT_GROUP) { doSelect(group, false); if (channels.length) cl.focusIndex(Math.min(i, channels.length - 1)); else gl.focus(); }
+      toast(c.id === 'unrecent' ? 'Removed from recently watched' : 'Recently watched cleared', { icon: 'check' });
+    }
     if (c.id === 'guide') go('guide', { channel: ch.id, group });
     if (c.id === 'multi') go('multiview', ch);
     if (c.id === 'hide') { settings.set('hiddenGroups', [...settings.get('hiddenGroups'), ch.group]); lib.rebuild(); toast('Group hidden · restore it in Settings'); }

@@ -494,13 +494,31 @@ class Player {
         next ? h('small.rec-next', `Next ${fmtClock(next.start)} · ${next.title}`) : null);
       row.append(card);
     }
+    // hold OK (or Menu) on a card: remove it, or clear the whole list
+    const manage = async (card) => {
+      const ch = card && list[[...row.children].indexOf(card)];
+      if (!ch) return;
+      const { choose } = await import('./ui.js');
+      const c = await choose(ch.name, [{ id: 'one', label: 'Remove from recent channels' }, { id: 'all', label: 'Clear all recent channels' }]);
+      if (!c) { card.focus({ preventScroll: true }); return; }
+      if (c.id === 'all') { lib.clearRecents(); this.#closeSide(); toast('Recent channels cleared', { icon: 'check' }); return; }
+      const i = [...row.children].indexOf(card);
+      lib.removeRecent(ch.id); list.splice(i, 1); card.remove();
+      if (!row.children.length) { this.#closeSide(); toast('Recent channels cleared', { icon: 'check' }); return; }
+      const n = row.children[Math.min(i, row.children.length - 1)];
+      n.focus({ preventScroll: true }); n.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+      toast('Removed from recent channels', { icon: 'check' });
+    };
+    row.dataset.longpress = '';
+    row.addEventListener('contextmenu', (e) => { const c = e.target.closest('.rec-card'); if (c) { e.preventDefault(); manage(c); } });
     row.__keys = (k) => {
       const cards = [...row.children], i = cards.indexOf(document.activeElement);
       if (k === 'left' || k === 'right') { const n = cards[Math.max(0, Math.min(cards.length - 1, i + (k === 'right' ? 1 : -1)))]; n?.focus({ preventScroll: true }); n?.scrollIntoView({ inline: 'nearest', block: 'nearest' }); return true; }
-      if (k === 'ok' || k === 'longok') { document.activeElement?.click(); return true; }
+      if (k === 'longok' || k === 'menu') { manage(document.activeElement?.closest('.rec-card')); return true; }
+      if (k === 'ok') { document.activeElement?.click(); return true; }
       return k === 'up' || k === 'down';
     };
-    this.#openSide('recents', () => [h('div.side-title', iconEl('history'), h('span', 'Recent channels'), h('small.muted', '◀ ▶ Browse · OK Play · Back Close')), row]);
+    this.#openSide('recents', () => [h('div.side-title', iconEl('history'), h('span', 'Recent channels'), h('small.muted', '◀ ▶ Browse · OK Play · Hold OK Remove · Back Close')), row]);
     setTimeout(() => row.firstChild?.focus({ preventScroll: true }), 40);
   }
   #logoFor(ch) { return logoEl(ch.logo, ch.name, 'logo'); }

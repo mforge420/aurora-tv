@@ -1,10 +1,10 @@
 {
-    "versionCode": 38,
-    "versionName": "1.0.37",
+    "versionCode": 39,
+    "versionName": "1.0.38",
     "url": "https://github.com/mforge420/aurora-tv/raw/main/android/LumoraTV-1.0.0.apk",
     "notes": [
-        "TV guide: on what's airing now the guide always shows the normal \"now\" view \u2014 it no longer stays stuck at the time it was opened",
-        "The guide follows the clock while it's open (and after the TV wakes or you come back from fullscreen)",
-        "Very short programmes (e.g. 2-minute fillers) no longer show cut-off text"
+        "Recent channels: hold OK on a channel to remove it, or clear the whole list",
+        "Works in the player's Recent channels row and in Live TV \u2192 Recently watched",
+        "Settings \u2192 Playback \u2192 Clear recently watched"
     ]
 }

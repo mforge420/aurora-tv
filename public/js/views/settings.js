@@ -119,6 +119,7 @@ export default function settingsView(root, { go }) {
     ],
     player: () => [
       h('h2', 'Playback'),
+      row('Clear recently watched', lib.recents.length ? `${lib.recents.length} channel${lib.recents.length === 1 ? '' : 's'} in the list` : 'The list is empty', h('button.btn.ghost', { disabled: !lib.recents.length, onclick: async () => { if (await confirmDialog('Clear recently watched?', 'Removes every channel from the recently watched list. Favorites are not affected.', { ok: 'Clear' })) { lib.clearRecents(); draw(); toast('Recently watched cleared', { icon: 'check' }); } }, html: icon('trash') + '<span>Clear</span>' })),
       row('Preview while scrolling', 'Off: the current channel keeps playing while you browse; OK previews, OK again goes fullscreen', toggle('previewAutoplay')),
       row('Mute previews', null, toggle('previewMuted')),
       row('Resume last channel on start', null, toggle('startOnLastChannel')),

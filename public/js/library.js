@@ -291,6 +291,16 @@ class Library extends Emitter {
     return this.favs.has(id);
   }
   isFav(id) { return this.favs.has(id); }
+  removeRecent(id) {
+    this.recents = this.recents.filter((x) => x !== id);
+    store.set('recents', this.recents);
+    this.emit('recents');
+  }
+  clearRecents() {
+    this.recents = [];
+    store.set('recents', this.recents);
+    this.emit('recents');
+  }
   addRecent(id) {
     this.recents = [id, ...this.recents.filter((x) => x !== id)].slice(0, 40);
     store.set('recents', this.recents);
